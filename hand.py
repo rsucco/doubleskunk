@@ -1,14 +1,18 @@
 from card import Card
-from itertools import chain
+from itertools import chain, combinations
 
 
 class Hand:
-    def __init__(self, cards=None, is_crib=False):
+    def __init__(self, cards=None, is_crib=False, upcard=Card()):
         self.cards = []
-        self.upcard = Card()
+        self.upcard = upcard
         self.is_crib = is_crib
         for card in cards:
             self.cards.append(card)
+
+    # Return all of the cards of the hand plus the upcard as a single list of Cards
+    def allCards(self):
+        return chain(self.cards, [self.upcard])
 
     def draw_card(self, card):
         self.cards.append(card)
@@ -16,16 +20,31 @@ class Hand:
     def count(self, verbose=False):
         return
 
+    # Each distinct combination of cards which add up to 15 is worth 2 points
     def count_15s(self, verbose=False):
-        return
+        score = 0
+        fifteens = set()
+        # Check every possible unique combination of cards to see if it sums to 15
+        for i in range(2, 6):
+            card_combos = combinations(self.allCards(), i)
+            for combo in card_combos:
+                if sum((card.value for card in combo)) == 15:
+                    # Use frozenset to hash the combination so we can store it uniquely
+                    fifteens.add(frozenset(combo))
+        score = len(fifteens) * 2
+        if verbose:
+            for i, combo in enumerate(fifteens):
+                print("15 for " + str((i + 1) * 2) + ":")
+                print(', '.join(str(card) for card in combo))
+        return score
 
     # A pair is 2 of a kind for 2 points, pair royal is 3 of a kind of 6 points, and pair double royal is 4 of a kind for 12
     def count_pairs(self, verbose=False):
-        pairs = {}
         score = 0
+        pairs = {}
         # Check each card against each other card. If the ranks match, they're a pair
-        for card in chain(self.cards, [self.upcard]):
-            for match_card in chain(self.cards, [self.upcard]):
+        for card in self.allCards():
+            for match_card in self.allCards():
                 if match_card != card and match_card.rank == card.rank:
                     # Track the number of cards in each pair separately to determine pairs royal and double royal
                     if card.rank not in pairs:
@@ -66,8 +85,7 @@ class Hand:
         if self.upcard.suit == flush_suit:
             if verbose:
                 print("5 card flush for 5:")
-                print(', '.join(str(card)
-                                for card in chain(self.cards, [self.upcard])))
+                print(', '.join(str(card) for card in self.allCards()))
             return 5
         # Four card flushes can't be scored in a crib
         if not self.is_crib:

@@ -5,10 +5,10 @@ import random
 class Deck:
     def __init__(self):
         self.cards = []
-        self.shuffle()
+        self.reset()
 
-    # Instantiate and randomize a standard 52-card deck
-    def shuffle(self):
+    # Instantiate a standard 52-card deck
+    def reset(self):
         self.cards = []
         for value in range(1, 14):
             # Give the correct rank to ace, jack, queen, and king
@@ -28,9 +28,12 @@ class Deck:
             for suit in ['c', 's', 'h', 'd']:
                 card = Card(rank, value, suit)
                 self.cards.append(card)
+
+    # Shuffle the deck
+    def shuffle(self):
         random.shuffle(self.cards)
 
-    # Deal a single card from the deck or multiple cards if specified
+    # Deal card(s) from the deck
     def deal_card(self, num=1):
         deal_cards = self.cards[0:num]
         self.cards = self.cards[num:]
