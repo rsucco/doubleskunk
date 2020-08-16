@@ -33,29 +33,37 @@ class Hand:
                 for score in score_type:
                     total_score += score.points
         if verbose:
+            running_score = 0
             if len(scores['15s']) > 0:
                 for i, fifteen in enumerate(scores['15s']):
-                    print('15 for ' + str((i + 1) * 2) + ':')
+                    running_score += 2
+                    print('15 for ' + str(running_score) + ':')
                     print(fifteen)
             if len(scores['pairs']) > 0:
                 for pair in scores['pairs']:
-                    print('Pair for 2:')
+                    running_score += 2
+                    print('Pair for ' + str(running_score) + ':')
                     print(pair)
             if len(scores['runs']) > 0:
                 for run in scores['runs']:
+                    running_score += run.points
                     run_length = str(run.points)
-                    print(run_length + '-card run for ' + str(run_length) + ":")
+                    print(run_length + '-card run for ' +
+                          str(running_score) + ':')
                     print(run)
             if len(scores['flush']) > 0:
-                flush_size = str(scores['flush'][0].points)[0]
-                print(flush_size + "-card flush for " + flush_size + ":")
+                flush_size = str(scores['flush'][0].points)
+                running_score += int(flush_size)
+                print(flush_size + '-card flush for ' +
+                      str(running_score) + ':')
                 # There can only be one flush, so it will always be a list size of one
                 print(scores['flush'][0])
             if len(scores['nibs']) > 0:
-                print("Nibs for 1:")
+                running_score += 1
+                print('Nibs for ', running_score, ':')
                 # You can only have nibs once, list size will be one
                 print(scores['nibs'][0])
-            print("Total score:", total_score)
+            print('\nTotal score:', total_score)
         return total_score
 
     # Each distinct combination of cards that adds up to 15 is worth 2 points

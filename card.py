@@ -9,11 +9,11 @@ class Card:
         if num_rank == 1:
             self.rank = 'A'
         elif num_rank == 11:
-            self.rank = "J"
+            self.rank = 'J'
         elif num_rank == 12:
-            self.rank = "Q"
+            self.rank = 'Q'
         elif num_rank == 13:
-            self.rank = "K"
+            self.rank = 'K'
         else:
             self.rank = str(num_rank)
         # Face cards still only count as 10 points

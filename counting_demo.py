@@ -10,7 +10,7 @@ from pyfiglet import Figlet
 
 def get_command():
     return input(
-        "Enter \'q\' to quit, \'c\' to count a custom hand, or press enter to count a random hand:")
+        'Enter \'q\' to quit, \'c\' to count a custom hand, or press enter to count a random hand:')
 
 
 # Get a custom hand from the user in a (hopefully) idiot-proof way
@@ -18,7 +18,7 @@ def get_rank():
     while True:
         try:
             rank = input(
-                "Input numerical rank from 1-13, or use the letters A, J, Q, or K:")
+                'Input numerical rank from 1-13, or use the letters A, J, Q, or K:')
             if rank[0].lower() == 'a':
                 rank = 1
             elif rank[0].lower() == 'j':
@@ -34,7 +34,7 @@ def get_rank():
             else:
                 raise Exception()
         except Exception:
-            print("Invalid rank.")
+            print('Invalid rank.')
             continue
 
 
@@ -47,31 +47,35 @@ def get_suit():
     while True:
         try:
             suit = input(
-                "Input first letter of suit: " + SPADES + ", " + HEARTS + ", " + CLUBS + ", or " + DIAMONDS + ":")[0].lower()
+                'Input first letter of suit: ' + SPADES + ', ' + HEARTS + ', ' + CLUBS + ', or ' + DIAMONDS + ':')[0].lower()
             if suit == 's' or suit == 'h' or suit == 'c' or suit == 'd':
                 return suit
             else:
                 raise Exception()
         except Exception:
-            print("Invalid suit.")
+            print('Invalid suit.')
             continue
 
 
 def get_custom_hand():
-    hand = Hand()
+    clear()
+    cards = []
     for i in range(4):
-        print("Enter card number ", i + 1, " for your hand:")
+        print('Enter card number ', i + 1, ' for your hand:')
         rank = get_rank()
         suit = get_suit()
-        hand.draw_card(Card(rank, suit))
-        print(hand)
-    print("Enter cut card:")
+        cards.append(Card(rank, suit))
+        print(Hand(cards))
+    print('Enter cut card:')
     rank = get_rank()
     suit = get_suit()
-    hand.upcard = Card(rank, suit)
-    is_crib = input("Crib y/n? [default n]")
+    upcard = Card(rank, suit)
+    is_crib = input('Crib y/n? [default n]')
     if is_crib.lower() == 'y':
-        hand.is_crib = True
+        is_crib = True
+    else:
+        is_crib = False
+    hand = Hand(cards, is_crib, upcard)
     clear()
     return hand
 
@@ -97,18 +101,22 @@ while command != 'q':
         command = get_command()
     if command == 'c':
         hand = get_custom_hand()
+        print('got custom')
     else:
+        print('getting random')
         # Create and shuffle a deck to get a random hand
         deck = Deck()
         deck.shuffle()
         # Deal four cards to the hand and one to the upcard
         hand = Hand(deck.deal_card(4))
         hand.upcard = deck.deal_card(1)[0]
-    print("Hand cards: ")
+    clear()
+    print('Hand cards: ')
     print(Score(hand.cards, 0))
-    print("Cut card: ")
+    print('Cut card: ')
     print(hand.upcard)
-    print("All cards:")
+    print('All cards:')
     print(hand, '\n***************\n')
     hand.count(True)
+    hand = Hand()
     command = get_command()
