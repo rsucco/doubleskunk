@@ -1,4 +1,5 @@
 from card import Card
+from score import Score
 from itertools import chain, combinations
 
 
@@ -10,104 +11,112 @@ class Hand:
         for card in cards:
             self.cards.append(card)
 
+    def __str__(self):
+        return ', '.join(str(card) for card in sorted(self.allCards(), key=lambda card: card.num_rank))
+
     # Return all of the cards of the hand plus the upcard as a single list of Cards
     def allCards(self):
         return chain(self.cards, [self.upcard])
 
+    # Draw a single card and add it to the hand
     def draw_card(self, card):
         self.cards.append(card)
 
+    # Count all of the scores in the hand
     def count(self, verbose=False):
-        return
+        scores = {'15s': self.count_15s(),
+                  'pairs': self.count_pairs(),
+                  'runs': self.count_runs(),
+                  'flush': self.count_flush(),
+                  'nibs': self.count_nibs()}
+        total_score = 0
+        for score_type in scores.values():
+            if len(score_type) > 0:
+                for score in score_type:
+                    total_score += score.points
+        if verbose:
+            if len(scores['15s']) > 0:
+                for i, fifteen in enumerate(scores['15s']):
+                    print('15 for ' + str((i + 1) * 2) + ':')
+                    print(fifteen)
+            if len(scores['pairs']) > 0:
+                for pair in scores['pairs']:
+                    print('Pair for 2:')
+                    print(pair)
+            if len(scores['runs']) > 0:
+                for run in scores['runs']:
+                    run_length = str(run.points)
+                    print(run_length + '-card run for ' + str(run_length) + ":")
+                    print(run)
+            if len(scores['flush']) > 0:
+                flush_size = str(scores['flush'][0].points)[0]
+                print(flush_size + "-card flush for " + flush_size + ":")
+                # There can only be one flush, so it will always be a list size of one
+                print(scores['flush'][0])
+            if len(scores['nibs']) > 0:
+                print("Nibs for 1:")
+                # You can only have nibs once, list size will be one
+                print(scores['nibs'][0])
+            print("Total score:", total_score)
+        return total_score
 
-    # Each distinct combination of cards which add up to 15 is worth 2 points
-    def count_15s(self, verbose=False):
-        score = 0
+    # Each distinct combination of cards that adds up to 15 is worth 2 points
+    def count_15s(self):
         fifteens = set()
-        # Check every possible unique combination of cards to see if it sums to 15
+        # Check every unique combination of cards to see if they sum to 15
         for i in range(2, 6):
             card_combos = combinations(self.allCards(), i)
             for combo in card_combos:
                 if sum((card.value for card in combo)) == 15:
-                    # Use frozenset to hash the combination so we can store it uniquely
-                    fifteens.add(frozenset(combo))
-        score = len(fifteens) * 2
-        if verbose:
-            for i, combo in enumerate(fifteens):
-                print("15 for " + str((i + 1) * 2) + ":")
-                print(', '.join(str(card) for card in combo))
-        return score
+                    # Store the combination as a Score object
+                    fifteens.add(Score(combo, 2))
+        return fifteens
 
     # A pair is 2 of a kind for 2 points, pair royal is 3 of a kind of 6 points, and pair double royal is 4 of a kind for 12
-    def count_pairs(self, verbose=False):
-        score = 0
-        pairs = {}
-        # Check each card against each other card. If the ranks match, they're a pair
-        for card in self.allCards():
-            for match_card in self.allCards():
-                if match_card != card and match_card.rank == card.rank:
-                    # Track the number of cards in each pair separately to determine pairs royal and double royal
-                    if card.rank not in pairs:
-                        pairs[card.rank] = set()
-                    # Update the set to avoid counting the same card multiple times
-                    pairs[card.rank].update((card, match_card))
-        for pair in pairs.items():
-            num_cards = len(pair[1])  # 2/3/4 of a kind
-            if num_cards == 2:
-                if verbose:
-                    print("Pair of " + pair[0] + "'s for 2:")
-                score += 2
-            elif num_cards == 3:
-                if verbose:
-                    print("Pair royal of " + pair[0] + "'s for 6:")
-                score += 6
-            elif num_cards == 4:
-                if verbose:
-                    print("Double pair royal of " + pair[0] + "'s for 12:")
-                score += 12
-            if verbose:
-                print(', '.join(str(card) for card in pair[1]))
-        return score
+    def count_pairs(self):
+        pairs = set()
+        # Iterate through every combination of two cards. If they match, they're a pair
+        card_combos = combinations(self.allCards(), 2)
+        for combo in card_combos:
+            if combo[0].rank == combo[1].rank:
+                pairs.add(Score(combo, 2))
+        return pairs
 
-    def count_runs(self, verbose=False):
-        return
+    def count_runs(self):
+        runs = set()
+        for i in range(5, 2, -1):
+            card_combos = list(combinations(self.allCards(), i))
+            for combo in card_combos:
+                # Sort the combination of cards based on numerical rank
+                sorted_combo = sorted(combo, key=lambda card: card.num_rank)
+                # If it's a run, every card will be followed by the next card in the list
+                if all((sorted_combo[j + 1].follows(sorted_combo[j]) for j in range(len(sorted_combo) - 1))):
+                    run = Score(sorted_combo, i)
+                    # Make sure the run isn't a partial copy of a longer run
+                    # There's no point in checking if the run is five cards or if there aren't any other runs
+                    if i == 5 or len(runs) == 0 or not any((run.cards.issubset(other_run.cards) for other_run in runs)):
+                        runs.add(run)
+        return runs
 
     # A flush is five cards in the same suit (in the hand or the crib) or four cards not including the upcard (in the hand only)
-    def count_flush(self, verbose=False):
+    def count_flush(self):
         flush_suit = self.cards[0].suit
         # If any card is a different suit than the first one, there can't be a flush
         for card in self.cards:
             if card.suit != flush_suit:
-                if verbose:
-                    print("No flush")
-                return 0
+                return []
         # Five card flush if the upcard also matches
         if self.upcard.suit == flush_suit:
-            if verbose:
-                print("5 card flush for 5:")
-                print(', '.join(str(card) for card in self.allCards()))
-            return 5
+            return [Score(self.allCards(), 5)]
         # Four card flushes can't be scored in a crib
         if not self.is_crib:
-            if verbose:
-                print("4 card flush for 4:")
-                for card in self.cards:
-                    print(card, end=" ")
-                print("")
-            return 4
+            return [Score(self.cards, 4)]
         else:
-            if verbose:
-                print("No flush")
-            return 0
+            return []
 
     # 'His nibs', or 'a jack' is a jack in the hand of the same suit as the upcard. This can stack with a flush.
-    def count_nibs(self, verbose=False):
+    def count_nibs(self):
         for card in self.cards:
             if card.rank == 'J' and card.suit == self.upcard.suit:
-                if verbose:
-                    print("Nibs for 1:")
-                    print(card, self.upcard)
-                return 1
-        if verbose:
-            print("No nibs")
-        return 0
+                return [Score((card, self.upcard), 1)]
+        return []

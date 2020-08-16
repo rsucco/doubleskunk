@@ -10,23 +10,9 @@ class Deck:
     # Instantiate a standard 52-card deck
     def reset(self):
         self.cards = []
-        for value in range(1, 14):
-            # Give the correct rank to ace, jack, queen, and king
-            if value == 1:
-                rank = 'A'
-            elif value == 11:
-                rank = "J"
-            elif value == 12:
-                rank = "Q"
-            elif value == 13:
-                rank = "K"
-            else:
-                rank = str(value)
-            # Face cards still only count as 10 points
-            if value > 10:
-                value = 10
+        for num_rank in range(1, 14):
             for suit in ['c', 's', 'h', 'd']:
-                card = Card(rank, value, suit)
+                card = Card(num_rank, suit)
                 self.cards.append(card)
 
     # Shuffle the deck
