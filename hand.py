@@ -4,15 +4,13 @@ from itertools import chain, combinations
 
 
 class Hand:
-    def __init__(self, cards=None, is_crib=False, upcard=Card()):
-        self.cards = []
+    def __init__(self, cards=[], is_crib=False, upcard=Card()):
+        self.cards = cards
         self.upcard = upcard
         self.is_crib = is_crib
-        for card in cards:
-            self.cards.append(card)
 
     def __str__(self):
-        return ', '.join(str(card) for card in sorted(self.allCards(), key=lambda card: card.num_rank))
+        return ', '.join(str(card) for card in sorted(self.allCards(), key=lambda card: card.num_rank) if card.num_rank != 0)
 
     # Return all of the cards of the hand plus the upcard as a single list of Cards
     def allCards(self):
