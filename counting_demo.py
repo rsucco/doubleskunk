@@ -93,7 +93,6 @@ while command != 'q':
     # Show some niceties the first time
     if command == 'first_run':
         f = Figlet(font='big', width=100)
-        #f'{Fore.LIGHTYELLOW_EX}[s]pades ♠{Style.RESET_ALL}'
         print(
             f'{Fore.BLUE}{f.renderText("Cribbage")}{Style.RESET_ALL}')
         print(f'{Fore.RED}{f.renderText("Counting")}{Style.RESET_ALL}')
@@ -101,9 +100,7 @@ while command != 'q':
         command = get_command()
     if command == 'c':
         hand = get_custom_hand()
-        print('got custom')
     else:
-        print('getting random')
         # Create and shuffle a deck to get a random hand
         deck = Deck()
         deck.shuffle()

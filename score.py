@@ -7,4 +7,4 @@ class Score:
         return ', '.join(str(card) for card in sorted(self.cards, key=lambda card: card.num_rank))
 
     def __hash__(self):
-        return hash(self.cards)
+        return hash(self.cards) ^ hash(self.points)

@@ -23,7 +23,7 @@ class Card:
             self.value = num_rank
 
     def __str__(self):
-        # Spades light white, hearts red, clubs green, diamonds blue
+        # Spades yellow, hearts red, clubs green, diamonds blue
         card_str = ''
         if self.suit == 's':
             card_str = str(
@@ -33,14 +33,13 @@ class Card:
                 f'{Fore.RED}{self.rank}♥{Style.RESET_ALL}')
         elif self.suit == 'c':
             card_str = str(
-                f'{Fore.GREEN}{self.rank}♣ {Style.RESET_ALL}')
+                f'{Fore.GREEN}{self.rank}♣{Style.RESET_ALL}')
         elif self.suit == 'd':
             card_str = str(
                 f'{Fore.BLUE}{self.rank}♦{Style.RESET_ALL}')
         return card_str
 
     # Equality is determined by rank and suit
-
     def __eq__(self, other):
         return self.rank == other.rank and self.suit == other.suit
 
@@ -54,4 +53,5 @@ class Card:
     def follows(self, other):
         if self.num_rank == other.num_rank + 1:
             return True
-        return False
+        else:
+            return False

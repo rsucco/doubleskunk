@@ -1,6 +1,9 @@
 from card import Card
 from score import Score
+from deck import Deck
 from itertools import chain, combinations
+from statistics import mean, pstdev
+from multiprocessing import Pool, cpu_count
 
 
 class Hand:
@@ -19,6 +22,10 @@ class Hand:
     # Draw a single card and add it to the hand
     def draw_card(self, card):
         self.cards.append(card)
+
+    # Remove the indicated card from the hand
+    def discard(self, card):
+        self.cards.remove(card)
 
     # Count all of the scores in the hand
     def count(self, verbose=False):
@@ -95,7 +102,7 @@ class Hand:
             for combo in card_combos:
                 # Sort the combination of cards based on numerical rank
                 sorted_combo = sorted(combo, key=lambda card: card.num_rank)
-                # If it's a run, every card will be followed by the next card in the list
+                # If it's a run, every card will be followed by the next card in the list, with the obvious exception of the last card
                 if all((sorted_combo[j + 1].follows(sorted_combo[j]) for j in range(len(sorted_combo) - 1))):
                     run = Score(sorted_combo, i)
                     # Make sure the run isn't a partial copy of a longer run
@@ -126,3 +133,70 @@ class Hand:
             if card.rank == 'J' and card.suit == self.upcard.suit:
                 return [Score((card, self.upcard), 1)]
         return []
+
+    # Analyze a hand of 6 or 5 (for 3-player) hands and determine the mathematically optimal discards
+    def best_discard(self, dealer, verbose=False):
+        if len(self.cards) <= 4:
+            raise Exception("Can only analyze best discard for full hands")
+        # Create a Deck to represent all the potential upcards
+        deck_remainder = Deck()
+        deck_remainder.cards = [
+            card for card in deck_remainder.cards if card not in self.cards]
+        # Two cards must be discarded, leaving us with a 4-card hand to be analyzed
+        potential_hands = (Hand(hand) for hand in combinations(self.cards, 4))
+        all_hands = []
+        # Get stats about how each hand performs with each potential upcard
+        # Currently I'm storing more data than is necessary for the analysis I've written
+        # I'll either trim the fat or elaborate on the analysis later
+        for hand in potential_hands:
+            # The two cards that aren't in this potential hand are the cards we discarded
+            discard = [card for card in self.cards if card not in hand.cards]
+            upcard_counts = []
+            crib_counts = []
+            # Count the hand with each upcard
+            for upcard in deck_remainder.cards:
+                hand.upcard = upcard
+                upcard_counts.append((upcard, hand.count()))
+
+                # Calculate all the potential crib values for each upcard
+                potential_discards = deck_remainder.cards.copy()
+                potential_discards.remove(upcard)
+                opponent_discards = combinations(potential_discards, 2)
+                for opponent_discard in opponent_discards:
+                    crib = Hand(
+                        list(chain(discard, opponent_discard)), True, upcard)
+                    crib_counts.append((crib, crib.count()))
+
+            # Calculate net expected points. This depends on whether we're the dealer or the pone
+            def get_points(counts):
+                return [count[1] for count in counts]
+
+            hand_points = get_points(upcard_counts)
+            crib_points = get_points(crib_counts)
+            net_points = []
+            for hand_score, crib_score in zip(hand_points, crib_points):
+                if dealer:
+                    net_points.append(hand_score + crib_score)
+                else:
+                    net_points.append(hand_score - crib_score)
+            points_average = mean(net_points)
+            points_std_dev = pstdev(net_points)
+            # Reset the upcard before storing
+            hand.upcard = Card()
+            all_hands.append((hand, points_average, points_std_dev))
+        all_hands = sorted(all_hands, key=lambda x: x[1], reverse=True)
+        if verbose:
+            for hand in all_hands:
+                discard = [
+                    card for card in self.cards if card not in hand[0].cards]
+                print('Discard:', ', '.join(str(card) for card in discard))
+                print('Your hand:', hand[0])
+                if dealer:
+                    dealer_str = '(including potential points in your crib): '
+                else:
+                    dealer_str = '(including net negative points given to opponent\'s crib): '
+                print('Expected net points ' +
+                      dealer_str + '{:.2f}'.format(hand[1]))
+                print('Standard deviation: ' + '{:.2f}'.format(hand[2]))
+                print()
+        return all_hands
