@@ -8,6 +8,7 @@ So far only the basic classes and a couple counting demos are complete. Eventual
 
 #### Setup:
 I'm not distributing anything with dependencies yet, but you can install them with a package manager of your choosing or use pip:
+
     pip3 install colorama pyfiglet
 
 #### Demos:
