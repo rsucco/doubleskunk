@@ -12,7 +12,9 @@ I'm not distributing anything with dependencies yet, but you can install them wi
 
 #### Demos:
 Hand counting demo
+
     python3 counting_demo.py
 
 Optimal discard analysis demo (WIP)
+
     python3 discard_analysis_demo.py
