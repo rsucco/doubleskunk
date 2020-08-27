@@ -4,6 +4,7 @@ from deck import Deck
 from itertools import chain, combinations
 from statistics import mean, pstdev
 from multiprocessing import Pool, cpu_count
+from sys import maxsize
 
 
 class Hand:
@@ -143,60 +144,71 @@ class Hand:
         deck_remainder.cards = [
             card for card in deck_remainder.cards if card not in self.cards]
         # Two cards must be discarded, leaving us with a 4-card hand to be analyzed
-        potential_hands = (Hand(hand) for hand in combinations(self.cards, 4))
+        potential_hands = list(Hand(hand)
+                               for hand in combinations(self.cards, 4))
         all_hands = []
+
         # Get stats about how each hand performs with each potential upcard
         # Currently I'm storing more data than is necessary for the analysis I've written
         # I'll either trim the fat or elaborate on the analysis later
+        # TODO Clean this mess up and add crib to the calculations
         for hand in potential_hands:
             # The two cards that aren't in this potential hand are the cards we discarded
             discard = [card for card in self.cards if card not in hand.cards]
             upcard_counts = []
-            crib_counts = []
             # Count the hand with each upcard
             for upcard in deck_remainder.cards:
                 hand.upcard = upcard
                 upcard_counts.append((upcard, hand.count()))
-
-                # Calculate all the potential crib values for each upcard
-                potential_discards = deck_remainder.cards.copy()
-                potential_discards.remove(upcard)
-                opponent_discards = combinations(potential_discards, 2)
-                for opponent_discard in opponent_discards:
-                    crib = Hand(
-                        list(chain(discard, opponent_discard)), True, upcard)
-                    crib_counts.append((crib, crib.count()))
-
-            # Calculate net expected points. This depends on whether we're the dealer or the pone
-            def get_points(counts):
-                return [count[1] for count in counts]
-
-            hand_points = get_points(upcard_counts)
-            crib_points = get_points(crib_counts)
-            net_points = []
-            for hand_score, crib_score in zip(hand_points, crib_points):
-                if dealer:
-                    net_points.append(hand_score + crib_score)
-                else:
-                    net_points.append(hand_score - crib_score)
-            points_average = mean(net_points)
-            points_std_dev = pstdev(net_points)
+            hand_info = {}
+            counts = [count[1] for count in upcard_counts]
+            hand_info['avg'] = mean(counts)
+            hand_info['max'] = [(Card(), 0)]
+            hand_info['min'] = [(Card(), maxsize)]
+            # Store which particular upcards lead to the min/max scores
+            for count in upcard_counts:
+                if count[1] > hand_info['max'][0][1]:
+                    hand_info['max'] = [count]
+                elif count[1] == hand_info['max'][0][1]:
+                    hand_info['max'].append(count)
+                if count[1] < hand_info['min'][0][1]:
+                    hand_info['min'] = [count]
+                elif count[1] == hand_info['min'][0][1]:
+                    hand_info['min'].append(count)
+            hand_info['std_dev'] = pstdev(counts)
             # Reset the upcard before storing
             hand.upcard = Card()
-            all_hands.append((hand, points_average, points_std_dev))
-        all_hands = sorted(all_hands, key=lambda x: x[1], reverse=True)
+            hand_info['hand'] = hand
+            all_hands.append(hand_info)
+        all_hands = sorted(all_hands, key=lambda x: x['avg'], reverse=True)
         if verbose:
             for hand in all_hands:
                 discard = [
-                    card for card in self.cards if card not in hand[0].cards]
+                    card for card in self.cards if card not in hand['hand'].cards]
                 print('Discard:', ', '.join(str(card) for card in discard))
-                print('Your hand:', hand[0])
+                print('Your hand:', hand['hand'])
                 if dealer:
                     dealer_str = '(including potential points in your crib): '
                 else:
                     dealer_str = '(including net negative points given to opponent\'s crib): '
-                print('Expected net points ' +
-                      dealer_str + '{:.2f}'.format(hand[1]))
-                print('Standard deviation: ' + '{:.2f}'.format(hand[2]))
-                print()
+                # TODO fix the stats
+                dealer_str = ': '
+                print('Expected points ' +
+                      dealer_str + '{:.2f}'.format(hand['avg']))
+                max_cards = ', '.join([str(card[0]) for card in hand['max']])
+                max_hit_odds = '(' + \
+                    '{:.2f}'.format(len(hand['max']) / 46 * 100) + '% odds)'
+                print('Maximum possible points (with ' +
+                      max_cards + '):', hand['max'][0][1], max_hit_odds)
+
+                min_cards = ', '.join([str(card[0]) for card in hand['min']])
+                min_hit_odds = '(' + \
+                    '{:.2f}'.format(len(hand['min']) / 46 * 100) + '% odds)'
+                print('Minimum possible points (with ' +
+                      min_cards + '):', hand['min'][0][1], min_hit_odds)
+                print('Standard deviation: ' +
+                      '{:.2f}'.format(hand['std_dev']))
+                print('\n--------\n')
+                # print('Expected points for your hand: ' +
+                #       '{:.2f}'.format(hand[3]))
         return all_hands

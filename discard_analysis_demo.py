@@ -60,24 +60,14 @@ def get_suit():
 def get_custom_hand():
     clear()
     cards = []
-    for i in range(4):
+    for i in range(6):
         print('Enter card number ', i + 1, ' for your hand:')
         rank = get_rank()
         suit = get_suit()
         cards.append(Card(rank, suit))
         print(Hand(cards))
-    print('Enter cut card:')
-    rank = get_rank()
-    suit = get_suit()
-    upcard = Card(rank, suit)
-    is_crib = input('Crib y/n? [default n]')
-    if is_crib.lower() == 'y':
-        is_crib = True
-    else:
-        is_crib = False
-    hand = Hand(cards, is_crib, upcard)
     clear()
-    return hand
+    return Hand(cards)
 
 
 def clear():
@@ -94,8 +84,8 @@ while command != 'q':
     if command == 'first_run':
         f = Figlet(font='big', width=100)
         print(
-            f'{Fore.BLUE}{f.renderText("Cribbage")}{Style.RESET_ALL}')
-        print(f'{Fore.RED}{f.renderText("Counting")}{Style.RESET_ALL}')
+            f'{Fore.BLUE}{f.renderText("Discard")}{Style.RESET_ALL}')
+        print(f'{Fore.RED}{f.renderText("Analysis")}{Style.RESET_ALL}')
         print(f'{Fore.LIGHTGREEN_EX}{f.renderText("Demo")}{Style.RESET_ALL}')
         command = get_command()
     if command == 'c':
@@ -106,16 +96,12 @@ while command != 'q':
         # Create and shuffle a deck to get a random hand
         deck = Deck()
         deck.shuffle()
-        # Deal four cards to the hand and one to the upcard
-        hand = Hand(deck.deal_card(4))
-        hand.upcard = deck.deal_card(1)[0]
+        # Deal six cards to the hand
+        hand = Hand(deck.deal_card(6))
     clear()
-    print('Hand cards: ')
+    print('Hand cards: \n')
     print(Score(hand.cards, 0))
-    print('Cut card: ')
-    print(hand.upcard)
-    print('All cards:')
-    print(hand, '\n***************\n')
-    hand.count(True)
+    print('Best discards:\n*******************\n')
+    hand.best_discard(True, True)
     hand = Hand()
     command = get_command()
