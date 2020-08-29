@@ -22,6 +22,7 @@ class Card:
         else:
             self.value = num_rank
 
+    # String representation should be snazzy, and str should only be used for terminal UI stuff
     def __str__(self):
         # Spades yellow, hearts red, clubs green, diamonds blue
         card_str = ''
@@ -47,6 +48,7 @@ class Card:
     def __lt__(self, other):
         return self.num_rank() < other.num_rank()
 
+    # Rank and suit are enough to make the object unique
     def __hash__(self):
         return hash((self.rank, self.suit))
 

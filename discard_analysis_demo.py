@@ -10,7 +10,7 @@ from pyfiglet import Figlet
 
 def get_command():
     return input(
-        'Enter \'q\' to quit, \'c\' to count a custom hand, or press enter to count a random hand:')
+        'Enter \'q\' to quit, \'c\' to analyze a custom hand, or press enter to analyze a random hand:')
 
 
 # Get a custom hand from the user in a (hopefully) idiot-proof way
@@ -57,16 +57,29 @@ def get_suit():
             continue
 
 
+def get_dealer():
+    while True:
+        try:
+            dealer = input('Calculate as [d]ealer, [p]one, or [b]oth?')[
+                0].lower()
+            if dealer == 'd' or dealer == 'p' or dealer == 'b':
+                return dealer
+            else:
+                raise Exception()
+        except Exception:
+            print('Invalid response. Enter a d, p, or b.')
+            continue
+
+
 def get_custom_hand():
     clear()
     cards = []
     for i in range(6):
-        print('Enter card number ', i + 1, ' for your hand:')
+        print('Enter card number', i + 1, 'for your hand:')
         rank = get_rank()
         suit = get_suit()
         cards.append(Card(rank, suit))
         print(Hand(cards))
-    clear()
     return Hand(cards)
 
 
@@ -90,6 +103,7 @@ while command != 'q':
         command = get_command()
     if command == 'c':
         hand = get_custom_hand()
+        dealer = get_dealer()
     elif command == 'q':
         break
     else:
@@ -98,10 +112,22 @@ while command != 'q':
         deck.shuffle()
         # Deal six cards to the hand
         hand = Hand(deck.deal_card(6))
+        # Show both dealer and pone analysis
+        dealer = 'b'
     clear()
-    print('Hand cards: \n')
-    print(Score(hand.cards, 0))
-    print('Best discards:\n*******************\n')
-    hand.best_discard(True, True)
+
+    if dealer == 'd' or dealer == 'b':
+        print('Hand cards: \n')
+        print(Score(hand.cards, 0), '\n')
+        print('Best discards for dealer:\n*******************\n')
+        hand.best_discard(True, True)
+        if dealer == 'b':
+            input('Press enter to see best discards for pone.')
+            clear()
+    if dealer == 'p' or dealer == 'b':
+        print('Hand cards: \n')
+        print(Score(hand.cards, 0), '\n')
+        print('Best discards for pone:\n*******************\n')
+        hand.best_discard(False, True)
     hand = Hand()
     command = get_command()
