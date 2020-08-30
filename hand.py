@@ -226,7 +226,7 @@ class Hand:
                     '{:.2f}'.format(len(hand['min']) / 46 * 100) + '% odds)'
                 print('Minimum possible points for your hand (with ' +
                       min_cards + '):', hand['min'][0][1], min_hit_odds)
-                print('Standard deviation (the higher the number, the greater the variation): ' +
+                print('Standard deviation of your hand\'s expected score (the higher the number, the greater the variance): ' +
                       '{:.2f}'.format(hand['std_dev']))
                 print('\n--------\n')
 
