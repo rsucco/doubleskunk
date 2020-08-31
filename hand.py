@@ -154,9 +154,6 @@ class Hand:
         # Get stats about how each hand performs and how their associated discards are expected to play in the crib
         all_hands = []
         for hand in potential_hands:
-            # The two cards that aren't in this potential hand are the cards we discarded
-            discard = [card for card in self.cards if card not in hand.cards]
-
             # Count the hand with each upcard
             upcard_counts = []
             for upcard in deck_remainder.cards:
@@ -166,9 +163,12 @@ class Hand:
             # Calculate all the stats we need for the hand
             hand_info = {}
             counts = [count[1] for count in upcard_counts]
+            # The two cards that aren't in this potential hand are the cards we discarded
+            hand_info['discard'] = [
+                card for card in self.cards if card not in hand.cards]
             hand_info['avg'] = mean(counts)
             hand_info['crib_points'] = self.expected_crib_points(
-                discard, dealer)
+                hand_info['discard'], dealer)
             if dealer:
                 hand_info['net_points'] = hand_info['avg'] + \
                     hand_info['crib_points']
@@ -201,9 +201,7 @@ class Hand:
         # Print some info if requested
         if verbose:
             for hand in all_hands:
-                discard = [
-                    card for card in self.cards if card not in hand['hand'].cards]
-                print('Discard:', ', '.join(str(card) for card in discard))
+                print('Discard:', str(Hand(hand['discard'])))
                 print('Your hand:', hand['hand'])
                 if dealer:
                     net_points_str = 'Expected net points (including potential points in your crib): '
