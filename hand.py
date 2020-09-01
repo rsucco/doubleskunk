@@ -23,13 +23,16 @@ class Hand:
         else:
             return self.cards
 
-    # Draw a single card and add it to the hand
-    def draw_card(self, card):
-        self.cards.append(card)
-
-    # Remove the indicated card from the hand
-    def discard(self, card):
-        self.cards.remove(card)
+    # Removes and returns a specified card from the hand
+    # Raises an exception if the card doesn't exist in the hand
+    def discard(self, num_rank, suit='0'):
+        for card in self.cards:
+            # Rank needs to match. Suit only needs to match if specified
+            if num_rank == card.num_rank and (suit == '0' or suit == card.suit):
+                self.cards.remove(card)
+                return card
+        raise Exception(str(num_rank) + ' of ' +
+                        suit + ' does not exist in hand.')
 
     # Count all of the scores in the hand
     def count(self, verbose=False):
