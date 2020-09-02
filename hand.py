@@ -13,7 +13,7 @@ class Hand:
         self.is_crib = is_crib
 
     def __str__(self):
-        return ', '.join(str(card) for card in sorted(self.allCards(), key=lambda card: card.num_rank) if card.num_rank != 0)
+        return ' '.join(str(card) for card in sorted(self.cards, key=lambda card: card.num_rank) if card.num_rank != 0)
 
     # Return all of the cards of the hand plus the upcard as a single list of Cards
     def allCards(self):
@@ -33,52 +33,6 @@ class Hand:
                 return card
         raise Exception(str(num_rank) + ' of ' +
                         suit + ' does not exist in hand.')
-
-    # Count all of the scores in the hand
-    def count(self, verbose=False):
-        scores = {'15s': self.count_15s(),
-                  'pairs': self.count_pairs(),
-                  'runs': self.count_runs(),
-                  'flush': self.count_flush(),
-                  'nibs': self.count_nibs()}
-        total_score = 0
-        for score_type in scores.values():
-            if len(score_type) > 0:
-                for score in score_type:
-                    total_score += score.points
-        if verbose:
-            running_score = 0
-            if len(scores['15s']) > 0:
-                for i, fifteen in enumerate(scores['15s']):
-                    running_score += 2
-                    print('15 for ' + str(running_score) + ':')
-                    print(fifteen)
-            if len(scores['pairs']) > 0:
-                for pair in scores['pairs']:
-                    running_score += 2
-                    print('Pair for ' + str(running_score) + ':')
-                    print(pair)
-            if len(scores['runs']) > 0:
-                for run in scores['runs']:
-                    running_score += run.points
-                    run_length = str(run.points)
-                    print(run_length + '-card run for ' +
-                          str(running_score) + ':')
-                    print(run)
-            if len(scores['flush']) > 0:
-                flush_size = str(scores['flush'][0].points)
-                running_score += int(flush_size)
-                print(flush_size + '-card flush for ' +
-                      str(running_score) + ':')
-                # There can only be one flush, so it will always be a list size of one
-                print(scores['flush'][0])
-            if len(scores['nibs']) > 0:
-                running_score += 1
-                print('Nibs for ', running_score, ':')
-                # You can only have nibs once, list size will be one
-                print(scores['nibs'][0])
-            print('\nTotal score:', total_score)
-        return total_score
 
     # Each distinct combination of cards that adds up to 15 is worth 2 points
     def count_15s(self):
@@ -143,6 +97,7 @@ class Hand:
         return []
 
     # Analyze a hand of 6 cards and determine the mathematically optimal discards
+    # TODO Move this to AIPlayer
     def best_discard(self, dealer=True, verbose=False):
         if len(self.cards) <= 5:
             raise Exception("Can only analyze best discard for 6-card hands")

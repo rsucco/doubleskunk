@@ -1,5 +1,6 @@
 from hand import Hand
 from card import Card
+from colorama import Fore, Back, Style
 import random
 
 
@@ -17,8 +18,9 @@ class Player:
 
     # Increase score and set last_score
     def add_points(self, points):
-        self.last_score = self.score
-        self.score += points
+        if points > 1:
+            self.last_score = self.score
+            self.score += points
 
 
 # Class for human player
@@ -58,10 +60,10 @@ class HumanPlayer(Player):
                          'If you don\'t care which suit is discarded, you don\'t need to include it.']
         if dealer:
             set_message(
-                'Your deal. Enter two cards for your crib. (Spacing between them is optional)')
+                Style.BRIGHT + 'Your deal.' + Style.RESET_ALL, 'Enter two cards for your crib. (Spacing between them is optional)')
         else:
             set_message(
-                'Opponent\'s deal. Enter two cards for opponent\'s crib. (Spacing between them is optional)')
+                Style.BRIGHT + 'Opponent\'s deal.' + Style.RESET_ALL, 'Enter two cards for opponent\'s crib. (Spacing between them is optional)')
         set_message(*base_messages, append_msg=True)
 
         # Get numerical rank of text input so we can create a Card object
@@ -89,8 +91,8 @@ class HumanPlayer(Player):
 
         while True:
             try:
-                # Convert 10's to t's and uppercase to lowercase. Anything valid will be matched to VALID_CHARS
-                discard_input = [char for char in input().lower().replace('10', 't')
+                # Convert 10's to t's, 1's to a's, and uppercase to lowercase. Anything valid will be matched to VALID_CHARS
+                discard_input = [char for char in input().lower().replace('10', 't').replace('1', 'a')
                                  if char in VALID_CHARS]
                 discards = []
                 # Get the first card
@@ -110,11 +112,15 @@ class HumanPlayer(Player):
                 discards.append(self.hand.discard(num_rank, suit))
                 break
             except Exception:
-                five_h = Card(5, 'h')
-                ace_s = Card(1, 's')
-                queen_d = Card(12, 'd')
-                set_message(
-                    'Invalid input. Enter two cards for your crib. (Spacing between them is optional)')
+                # Put discards back in hand
+                for discard in discards:
+                    self.hand.cards.append(discard)
+                if dealer:
+                    set_message(
+                        Style.BRIGHT + 'Your deal.' + Style.RESET_ALL, 'Invalid input. Enter two cards for your crib. (Spacing between them is optional)')
+                else:
+                    set_message(
+                        Style.BRIGHT + 'Opponent\'s deal.' + Style.RESET_ALL, 'Invalid input. Enter two cards for opponent\'s crib. (Spacing between them is optional)')
                 set_message(*base_messages[:4], append_msg=True)
                 set_message('', 'Example:  \'' + self.hand.cards[0].rank + self.hand.cards[0].suit + self.hand.cards[-1].rank + '\' for ' + str(
                     self.hand.cards[0]) + ' and a ' + self.hand.cards[-1].rank + ' of unspecified suit.', append_msg=True)
