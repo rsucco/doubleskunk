@@ -1,57 +1,18 @@
-from sys import exit
 from card import Card
 from score import Score
 from deck import Deck
 from hand import Hand
 from player import Player, HumanPlayer, AIPlayer
+from message import Message
 from colorama import Fore, Back, Style, init
 from os import system, name
-from re import compile
+from sys import exit
 from time import sleep
 import traceback
 
 
 class Game:
-    SPADES = str(f'{Fore.LIGHTYELLOW_EX}[s]pades ♠{Style.RESET_ALL}')
-    HEARTS = str(f'{Fore.RED}[h]earts ♥{Style.RESET_ALL}')
-    CLUBS = str(f'{Fore.GREEN}[c]lubs ♣{Style.RESET_ALL}')
-    DIAMONDS = str(f'{Fore.BLUE}[d]iamonds ♦{Style.RESET_ALL}')
     BOARD_SPACE = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' '
-
-    # Subclass for printing messages containing unicode characters with correct space justification
-    class Message:
-        def __init__(self, message=''):
-            self.message = message
-            self.length = len(message)
-
-        def bare_str(self):
-            # Regex to strip color formatting
-            REGEX = compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
-            bare_str = REGEX.sub('', self.message)
-            # Convert to ASCII to get rid of the unicode characters
-            bare_str = bare_str.encode('ascii', errors='replace')
-            return bare_str
-
-        # Generate string left justified, taking ANSI codes and unicode into account
-        def ljust(self, width):
-            padded_str = self.message
-            if len(self.bare_str()) < width:
-                for i in range(width - len(self.bare_str()) - 2):
-                    padded_str += ' '
-            return padded_str
-
-        # Generate string centered, taking ANSI codes and unicode into account
-        def center(self, width):
-            padded_str = self.message
-            if len(self.bare_str()) < width:
-                # Handle odd numbers
-                if (width - len(self.bare_str())) % 2 != 0:
-                    padded_str += ' '
-                else:
-                    padded_str = ' ' + padded_str + ' '
-                for i in range(0, width - len(self.bare_str()) - 2, 2):
-                    padded_str = ' ' + padded_str + ' '
-            return padded_str
 
     def __init__(self, num_players=1, difficulty=3, debug=False):
         # Initialize colorama to enable styled terminal output on Windows
@@ -67,7 +28,7 @@ class Game:
             self.player1 = HumanPlayer()
             self.player2 = HumanPlayer()
         self.difficulty = difficulty
-        self.messages = [self.Message()]
+        self.messages = [Message()]
         self.debug = debug
         self.deck = Deck()
         self.crib = Hand()
@@ -245,7 +206,7 @@ class Game:
 
     def render_ui_hand(self, render_strs, player=1, width=25, margin_left=35):
         if player == 1:
-            padded_hand = self.Message(str(self.player1.hand))
+            padded_hand = Message(str(self.player1.hand))
         render_strs[0] += ' ' * margin_left + '╓' + '─' * (width) + '╖'
         render_strs[1] += ' ' * margin_left + '║' + \
             'Your hand'.center(width) + '║'
@@ -258,7 +219,7 @@ class Game:
         render_strs[0] += '     ╓────────╖'
         render_strs[1] += '     ║ Upcard ║'
         render_strs[2] += '     ║' + \
-            self.Message(str(self.upcard)).center(8) + '║'
+            Message(str(self.upcard)).center(8) + '║'
         render_strs[3] += '     ╙────────╜'
         return render_strs
 
@@ -323,23 +284,49 @@ class Game:
             print('CRIB:')
             print(self.crib)
 
-    def set_message(self, *messages):
-        self.messages = list(self.Message(message) for message in messages)
+    # Can be used directly or passed as a callback to player objects so they can write to the UI
+    def set_message(self, *messages, **kwargs):
+        # If the append_msg argument is passed, use it
+        try:
+            if kwargs['append_msg']:
+                append_msg = True
+            else:
+                insert_msg = False
+        # If the kwarg wasn't included, make it false
+        except Exception:
+            append_msg = False
+        # Do the same for insert_msg
+        try:
+            if kwargs['insert_msg']:
+                insert_msg = True
+            else:
+                insert_msg = False
+        except Exception:
+            insert_msg = False
+        messages_list = list(Message(message) for message in messages)
+        if append_msg:
+            self.messages.extend(messages_list)
+        elif insert_msg:
+            messages_list.extend(self.messages)
+            self.messages = messages_list
+        else:
+            self.messages = messages_list
         self.draw_game()
 
     # Have both players cut to determine who deals (low card deals)
     def get_dealer(self):
-        self.set_message('Cut to determine dealer. Low card deals; ace is low.',
-                         'Enter number between 4 and 36 or press enter for random cut.')
+        self.set_message(
+            'Cut to determine dealer. Low card deals; ace is low.')
         # Keep cutting until we have a winner
         while True:
             self.deck.shuffle()
-            p1_cut = self.deck.cards[self.player1.cut_deck()]
+            p1_cut = self.deck.cards[self.player1.cut_deck(self.set_message)]
             p2_cut = p1_cut
             # Make sure they don't accidentally cut the exact same card
             # TODO Fix this to have player 2 cut the remainder of the deck after player 1's cut rather than cutting the entire deck twice
             while p2_cut == p1_cut:
-                p2_cut = self.deck.cards[self.player2.cut_deck()]
+                p2_cut = self.deck.cards[self.player2.cut_deck(
+                    self.set_message)]
             cut_message = 'Player 1 cuts ' + \
                 str(p1_cut) + '. Player 2 cuts ' + str(p2_cut) + '.'
             if p1_cut.num_rank < p2_cut.num_rank:
@@ -370,54 +357,27 @@ class Game:
 
     # Get discards from both players to the crib
     def get_discards(self):
-        # Update UI
-        base_messages = ['You can use the numbers 2-10 as well as A, T, J, Q, and K',
-                         '',
-                         'If you want to specify, you can include the first letter of the suit:',
-                         self.SPADES + ', ' + self.HEARTS + ', ' + self.CLUBS + ', or ' + self.DIAMONDS,
-                         '',
-                         'If you don\'t care which suit is discarded, you don\'t need to include it.']
-        messages = base_messages.copy()
-        if self.dealer == 1:
-            messages.insert(0,
-                            'Your deal. Enter two cards for your crib. (Spacing between them is optional)')
-        else:
-            messages.insert(0,
-                            'Computer\'s deal. Enter two cards for the computer\'s crib. (Spacing between them is optional)')
-        self.set_message(*messages)
         self.crib = Hand(is_crib=True)
-        # Get discards from the players until they provide valid ones
-        while True:
-            try:
-                self.crib.cards.extend(self.player1.select_discards())
-                self.crib.cards.extend(self.player2.select_discards())
-                self.draw_game()
-                if len(self.crib.cards) == 4:
-                    break
-                else:
-                    raise Exception
-            except Exception:
-                # Print the traceback if in debug mode so it can be seen in scrollback
-                if self.debug:
-                    traceback.print_exc()
-                messages = base_messages.copy()
-                messages.insert(0,
-                                'Invalid input. Enter two cards for your crib, separated by a space.')
-                self.set_message(*messages)
-                continue
+        # Get discards from the players
+        self.crib.cards.extend(self.player1.select_discards(
+            self.set_message, self.dealer == 1))
+        self.crib.cards.extend(self.player2.select_discards(
+            self.set_message, self.dealer == 2))
+        self.draw_game()
 
     # Cut the deck to get the upcard
     def get_upcard(self):
+        self.set_message('Cut the deck to determine shared cut card.')
         if self.dealer == 1:
-            self.upcard = self.deck.cards.pop(self.player2.cut_deck())
-            self.set_message('Computers cuts ' +
+            self.upcard = self.deck.cards.pop(
+                self.player2.cut_deck(self.set_message))
+            self.set_message('Player 2 cuts ' +
                              str(self.upcard) + '. Press enter to continue.')
             input()
         else:
-            self.set_message('Cut the deck to determine shared cut card.',
-                             'Enter number between 4 and 36 or press enter for random cut.')
-            self.upcard = self.deck.cards.pop(self.player1.cut_deck())
-            self.set_message('You cut ' + str(self.upcard) +
+            self.upcard = self.deck.cards.pop(
+                self.player1.cut_deck(self.set_message))
+            self.set_message('Player 1 cuts ' + str(self.upcard) +
                              '. Press enter to continue.')
             input()
 
@@ -436,24 +396,24 @@ class Game:
 
 
 # Jump right into the part I'm currently testing
-# game = Game(1, 3, True)
-# game.dealer = 1
-# game.deal_hands()
-# cards = [Card(10, 's'),
-#          Card(12, 's'),
-#          Card(13, 's'),
-#          Card(10, 'd'),
-#          Card(12, 'd'),
-#          Card(13, 'c')]
-# game.player1.hand.cards = cards
-# game.get_discards()
-# game.get_upcard()
+def jumpToTest():
+    game = Game(1, 3, True)
+    game.dealer = 1
+    game.deal_hands()
+    cards = [Card(10, 's'),
+             Card(12, 's'),
+             Card(13, 's'),
+             Card(10, 'd'),
+             Card(12, 'd'),
+             Card(13, 'c')]
+    game.player1.hand.cards = cards
+    game.get_discards()
+    game.get_upcard()
+    exit()
 
 
-# exit()
+# jumpToTest()
 
-
-debug = False
 num_players = input('Enter 1 or 2 for number of players (default 1):')
 if num_players == '2':
     num_players = 2
@@ -463,15 +423,13 @@ else:
 try:
     difficulty = input(
         'Enter 1 for easy difficulty, 2 for medium, 3 for hard (default 2):')
+    debug = False
     if difficulty[-1] == 'D':
         verify = input(
             'Did you mean to enable debug mode? y/n (default n):')[0].lower()
         if verify == 'y':
             debug = True
-    if difficulty == '1' or difficulty == '3':
         difficulty = int(difficulty[0])
-    else:
-        raise Exception
 except Exception:
     difficulty = 2
     debug = False

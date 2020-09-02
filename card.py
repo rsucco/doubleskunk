@@ -2,6 +2,11 @@ from colorama import Fore, Back, Style
 
 
 class Card:
+    SPADES = str(f'{Fore.LIGHTYELLOW_EX}[s]pades ♠{Style.RESET_ALL}')
+    HEARTS = str(f'{Fore.RED}[h]earts ♥{Style.RESET_ALL}')
+    CLUBS = str(f'{Fore.GREEN}[c]lubs ♣{Style.RESET_ALL}')
+    DIAMONDS = str(f'{Fore.BLUE}[d]iamonds ♦{Style.RESET_ALL}')
+
     def __init__(self, num_rank=0, suit='0'):
         self.num_rank = num_rank
         self.suit = suit
