@@ -20,14 +20,17 @@ class Game:
         # 2-person games and 2-AI games are only for testing right now
         self.players = []
         if num_players == 0:
-            self.players.append(AIPlayer(difficulty))
-            self.players.append(AIPlayer(difficulty))
+            self.players.append(
+                AIPlayer(self.player_victory, 0, difficulty=difficulty, verbose=debug))
+            self.players.append(
+                AIPlayer(self.player_victory, 1, difficulty=difficulty, verbose=debug))
         elif num_players == 1:
-            self.players.append(HumanPlayer())
-            self.players.append(AIPlayer(difficulty, debug))
+            self.players.append(HumanPlayer(self.player_victory, 0))
+            self.players.append(
+                AIPlayer(self.player_victory, 1, difficulty=difficulty, verbose=debug))
         elif num_players == 2:
-            self.players.append(HumanPlayer())
-            self.players.append(HumanPlayer())
+            self.players.append(HumanPlayer(self.player_victory, 0))
+            self.players.append(HumanPlayer(self.player_victory, 1))
         self.difficulty = difficulty
         self.messages = [Message()]
         self.debug = debug
@@ -46,18 +49,15 @@ class Game:
 
     # Render the top of a score section
     def render_board_top(self, starting_point=1):
-        render_str = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK
-        if starting_point == 1:
-            render_str += '  ╓────╖  '
-        else:
-            render_str += '  ╓─────╖ '
+        render_str = Style.BRIGHT + Back.LIGHTYELLOW_EX + \
+            Style.DIM + Fore.BLACK + '  ╓─────╖ '
         for i in range(60):
             if i == 0:
                 render_str += '╓'
             elif i == 59:
-                render_str += '────╖  '
+                render_str += '─────╖  '
             elif i % 5 == 0:
-                render_str += '──╥'
+                render_str += '───╥'
             else:
                 render_str += '──'
         render_str += Style.RESET_ALL
@@ -65,18 +65,15 @@ class Game:
 
     # Render the bottom of a score section
     def render_board_bottom(self, starting_point=1):
-        render_str = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK
-        if starting_point == 1:
-            render_str += '  ╙────╜  '
-        else:
-            render_str += '  ╙─────╜ '
+        render_str = Style.BRIGHT + Back.LIGHTYELLOW_EX + \
+            Style.DIM + Fore.BLACK + '  ╙─────╜ '
         for i in range(60):
             if i == 0:
                 render_str += '╙'
             elif i == 59:
-                render_str += '────╜  '
+                render_str += '─────╜  '
             elif i % 5 == 0:
-                render_str += '──╨'
+                render_str += '───╨'
             else:
                 render_str += '──'
         render_str += Style.RESET_ALL
@@ -86,27 +83,25 @@ class Game:
     def render_board_hole(self, score, player=None):
         # Hole 121 needs special handling since either player's peg can go there
         if score == 121:
-            if self.players[0].peg_at(121):
+            if self.players[0].peg_at(121) or self.players[1].peg_at(121):
                 return Style.RESET_ALL + Style.DIM + \
-                    Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.BLACK + '⬤ ' + Style.RESET_ALL
-            elif self.players[1].peg_at(121):
-                return Style.RESET_ALL + Style.DIM + \
-                    Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.WHITE + '⬤ ' + Style.RESET_ALL
+                    Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.BLACK + ' ●'
             else:
-                return Style.RESET_ALL + Style.DIM + Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.BLACK + '⭕' + Style.RESET_ALL
-        # Proper background colors for
+                return Style.RESET_ALL + Style.DIM + Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.BLACK + ' ○'
+        # Proper background colors for both players
         if player == self.players[0]:
             render_str = Style.RESET_ALL + Style.DIM + \
                 Back.LIGHTRED_EX + Style.BRIGHT + Fore.BLACK
         elif player == self.players[1]:
             render_str = Style.RESET_ALL + Style.DIM + \
-                Back.LIGHTGREEN_EX + Style.BRIGHT + Fore.WHITE
+                Back.LIGHTGREEN_EX + Style.BRIGHT + Fore.BLACK
         else:
             render_str = Style.RESET_ALL + Style.DIM + Back.LIGHTYELLOW_EX
+        # Different unicode characters for if a peg is in the hole or not
         if player.peg_at(score):
-            render_str += '⬤ ' + Style.RESET_ALL
+            render_str += ' ●'
         else:
-            render_str += Style.BRIGHT + Fore.BLACK + '⭕' + Style.RESET_ALL
+            render_str += ' ○'
         return render_str
 
     # Render the score section of the board
@@ -122,15 +117,13 @@ class Game:
             # Render the starting line
             render_strs[0] += VERT
             render_strs[1] += Style.BRIGHT + \
-                Back.LIGHTYELLOW_EX + Fore.BLACK + '╠════╣  '
+                Back.LIGHTYELLOW_EX + Fore.BLACK + '╠═════╣ '
             render_strs[2] += VERT
             for i in [-1, 0]:
                 render_strs[0] += self.render_board_hole(i, self.players[0])
                 render_strs[2] += self.render_board_hole(i, self.players[1])
-            render_strs[0] += Style.BRIGHT + \
-                Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + '║  '
-            render_strs[2] += Style.BRIGHT + \
-                Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + '║  '
+            render_strs[0] += ' ' + VERT + self.BOARD_SPACE
+            render_strs[2] += ' ' + VERT + self.BOARD_SPACE
             # Render the scores
             for i in range(1, 61):
                 # Left side
@@ -143,30 +136,31 @@ class Game:
                 render_strs[2] += self.render_board_hole(i, self.players[1])
                 # Right side
                 if i == 60:
-                    render_strs[0] += VERT + self.BOARD_SPACE + \
+                    render_strs[0] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
-                    render_strs[1] += '╣' + self.BOARD_SPACE + \
+                    render_strs[1] += '═╣' + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
-                    render_strs[2] += VERT + self.BOARD_SPACE + \
+                    render_strs[2] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
                 # Separators
                 elif i % 5 == 0:
-                    render_strs[0] += VERT
-                    render_strs[1] += '╬'
-                    render_strs[2] += VERT
+                    render_strs[0] += ' ' + VERT
+                    render_strs[1] += '═╬'
+                    render_strs[2] += ' ' + VERT
 
         # Render holes 61-121
         else:
             # Render the finish line
             render_strs[0] += VERT + self.BOARD_SPACE * \
                 5 + VERT + self.BOARD_SPACE
-            render_strs[1] += VERT + self.BOARD_SPACE * 2 + \
+            render_strs[1] += VERT + self.BOARD_SPACE + \
                 self.render_board_hole(
-                    121) + self.BOARD_SPACE + VERT + self.BOARD_SPACE
+                    121) + self.BOARD_SPACE * 2 + VERT + self.BOARD_SPACE
             render_strs[2] += VERT + self.BOARD_SPACE * \
                 5 + VERT + self.BOARD_SPACE
             # Render the scores
             for i in range(119, 59, -1):
+                # Left side
                 if i == 119:
                     render_strs[0] += '║'
                     render_strs[1] += '╠'
@@ -176,22 +170,22 @@ class Game:
                 render_strs[2] += self.render_board_hole(i, self.players[1])
                 # Right side
                 if i == 60:
-                    render_strs[0] += VERT + self.BOARD_SPACE + \
+                    render_strs[0] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
-                    render_strs[1] += '╣' + self.BOARD_SPACE + \
+                    render_strs[1] += '═╣' + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
-                    render_strs[2] += VERT + self.BOARD_SPACE + \
+                    render_strs[2] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
-                # Left side
+                # Skunk line
                 elif i == 90:
-                    render_strs[0] += VERT
-                    render_strs[1] += 'S'
-                    render_strs[2] += VERT
+                    render_strs[0] += ' ' + VERT
+                    render_strs[1] += '═S'
+                    render_strs[2] += ' ' + VERT
                 # Vertical separators
                 elif i % 5 == 0:
-                    render_strs[0] += VERT
-                    render_strs[1] += '╬'
-                    render_strs[2] += VERT
+                    render_strs[0] += ' ' + VERT
+                    render_strs[1] += '═╬'
+                    render_strs[2] += ' ' + VERT
         return render_strs
 
     def render_ui_messages(self, messages, width=80, margin_left=10):
@@ -237,7 +231,7 @@ class Game:
         print()
         # Row 1
         print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK +
-              '          0                    10                    20                    30                    40                    50                    60  ' + Style.RESET_ALL)
+              '           0                     10                      20                      30                      40                      50                     60   ' + Style.RESET_ALL)
         print(self.render_board_top(1))
         for score_str in self.render_board_score(1):
             print(score_str)
@@ -249,7 +243,7 @@ class Game:
             print(f'{score_str}')
         print(self.render_board_bottom(61))
         print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK +
-              '         120                   110                   100                   90                    80                    70                    60  ' + Style.RESET_ALL)
+              '         120                     110                     100                     90                      80                      70                      60  ' + Style.RESET_ALL)
 
     # Draw the informational UI
     def draw_ui(self):
@@ -287,24 +281,13 @@ class Game:
             if kwargs['append_msg']:
                 append_msg = True
             else:
-                insert_msg = False
+                append_msg = False
         # If the kwarg wasn't included, make it false
         except Exception:
             append_msg = False
-        # Do the same for insert_msg
-        try:
-            if kwargs['insert_msg']:
-                insert_msg = True
-            else:
-                insert_msg = False
-        except Exception:
-            insert_msg = False
         messages_list = list(Message(message) for message in messages)
         if append_msg:
             self.messages.extend(messages_list)
-        elif insert_msg:
-            messages_list.extend(self.messages)
-            self.messages = messages_list
         else:
             self.messages = messages_list
         self.draw_game()
@@ -337,24 +320,22 @@ class Game:
                 input()
                 return 1
             else:
-                self.set_message(cut_message + ' Cut is tied. Cut again.',
-                                 'Enter number between 4 and 36 or press enter for random cut.')
+                self.set_message(cut_message + ' Cut is tied. Cut again.')
 
     # Shuffle the deck and deal
     def deal_hands(self):
-        self.deck = Deck()
+        self.deck.reset()
         self.deck.shuffle()
+        self.crib = Hand()
         self.upcard = Card()
         hands = self.deck.deal_hands()
         self.players[self.dealer].hand = Hand(hands['dealer'])
-        self.players[1 - self.dealer].hand = Hand(hands['pone'])
+        self.players[self.pone].hand = Hand(hands['pone'])
 
     # Get discards from both players to the crib
     def get_discards(self):
-        self.crib = Hand(is_crib=True)
-        # Get discards from the players
-        self.crib.cards.extend(self.players[0].select_discards(
-            self.set_message, self.dealer == 0))
+        self.crib = Hand(self.players[0].select_discards(
+            self.set_message, self.dealer == 0), is_crib=True)
         self.crib.cards.extend(self.players[1].select_discards(
             self.set_message, self.dealer == 1))
         self.draw_game()
@@ -363,8 +344,8 @@ class Game:
     def get_upcard(self):
         self.set_message('Cut the deck to determine shared cut card.')
         self.upcard = self.deck.cards.pop(
-            self.players[1 - self.dealer].cut_deck(self.set_message))
-        self.set_message('Player ' + str(self.dealer + 1) + ' cuts ' +
+            self.players[self.pone].cut_deck(self.set_message))
+        self.set_message('Player ' + str(self.pone + 1) + ' cuts ' +
                          str(self.upcard) + '. Press enter to continue.')
         if self.upcard.rank == 'J':
             self.players[self.dealer].add_points(2)
@@ -378,71 +359,89 @@ class Game:
     def pegging(self):
         return
 
-    # Count hands
-    def count_hands(self):
-        for i in [1 - self.dealer, self.dealer]:
-            scores = {'15s': self.players[i].hand.count_15s(),
-                      'pairs': self.players[i].hand.count_pairs(),
-                      'runs': self.players[i].hand.count_runs(),
-                      'flush': self.players[i].hand.count_flush(),
-                      'nibs': self.players[i].hand.count_nibs()}
-            running_score = 0
-            message = [
-                'Player ' + str(i + 1) + '\'s hand: ' + str(self.players[i].hand), '']
-            if len(scores['15s']) > 0:
-                for fifteen in scores['15s']:
-                    running_score += 2
-                    message.append('15 for ' + str(running_score) + ':')
-                    message.append(str(fifteen))
-            if len(scores['pairs']) > 0:
-                for pair in scores['pairs']:
-                    running_score += 2
-                    message.append('Pair for ' + str(running_score) + ':')
-                    message.append(str(pair))
-            if len(scores['runs']) > 0:
-                for run in scores['runs']:
-                    running_score += run.points
-                    run_length = str(run.points)
-                    message.append(run_length + '-card run for ' +
-                                   str(running_score) + ':')
-                    message.append(str(run))
-            if len(scores['flush']) > 0:
-                flush_size = str(scores['flush'][0].points)
-                running_score += int(flush_size)
-                message.append(flush_size + '-card flush for ' +
+    # Count a hand, displaying information about the count in the UI
+    def count_hand(self, hand):
+        scores = {'15s': hand.count_15s(),
+                  'pairs': hand.count_pairs(),
+                  'runs': hand.count_runs(),
+                  'flush': hand.count_flush(),
+                  'nibs': hand.count_nibs()}
+        running_score = 0
+        message = []
+        if len(scores['15s']) > 0:
+            for fifteen in scores['15s']:
+                running_score += 2
+                message.append('15 for ' + str(running_score) + ':')
+                message.append(str(fifteen))
+        if len(scores['pairs']) > 0:
+            for pair in scores['pairs']:
+                running_score += 2
+                message.append('Pair for ' + str(running_score) + ':')
+                message.append(str(pair))
+        if len(scores['runs']) > 0:
+            for run in scores['runs']:
+                running_score += run.points
+                run_length = str(run.points)
+                message.append(run_length + '-card run for ' +
                                str(running_score) + ':')
-                # There can only be one flush, so it will always be a list size of one
-                message.append(str(scores['flush'][0]))
-            if len(scores['nibs']) > 0:
-                running_score += 1
-                message.append('Nibs for ' + str(running_score) + ':')
-                # You can only have nibs once, list size will be one
-                message.append(str(scores['nibs'][0]))
-            print(i)
-            print(self.dealer)
-            print(running_score)
-            self.players[i].add_points(running_score)
-            message.append(Style.BRIGHT + 'Total score: ' +
-                           str(running_score) + Style.RESET_ALL)
-            message.append('')
-            message.append('Press enter to continue.')
-            self.set_message(*message)
+                message.append(str(run))
+        if len(scores['flush']) > 0:
+            running_score += scores['flush'][0].points
+            message.append(str(scores['flush'][0].points) + '-card flush for ' +
+                           str(running_score) + ':')
+            # There can only be one flush, so it will always be a list size of one
+            message.append(str(scores['flush'][0]))
+        if len(scores['nibs']) > 0:
+            running_score += 1
+            message.append('Nibs for ' + str(running_score) + ':')
+            # You can only have nibs once, list size will be one
+            message.append(str(scores['nibs'][0]))
+        message.append(Style.BRIGHT + 'Total score: ' +
+                       str(running_score) + Style.RESET_ALL)
+        message.append('')
+        self.set_message(*message, append_msg=True)
+        return running_score
+
+    # Show the counts of the hands and the crib
+    def show_hands(self):
+        for i in [self.pone, self.dealer]:
+            # Display the hand before counting it
+            self.set_message('Player ' + str(i + 1) +
+                             '\'s hand: ' + str(self.players[i].hand) + ' [' + str(self.upcard) + ']')
+            # Tally up the hand and give the player their points
+            self.players[i].add_points(self.count_hand(self.players[i].hand))
+            # set_message will refresh the UI to show updated scores
+            self.set_message('Press enter to continue.', append_msg=True)
             input()
+        # Same as above, but for the crib
+        self.set_message('Player ' + str(self.dealer + 1) +
+                         '\'s crib: ' + str(self.crib) + ' [' + str(self.upcard) + ']')
+        self.players[self.dealer].add_points(self.count_hand(self.crib))
+        self.set_message('Press enter to continue.', append_msg=True)
+        input()
+
+    # Callback method for player object to call as soon as it wins. This makes handling small frequent victory checks easier
+    def player_victory(self, player_num):
+        self.set_message('Player ' + str(player_num + 1) + ' wins!')
+        input()
+        exit()
 
     # The high-level flow of the cribbage game happens here
     def play(self):
         # Cut the deck to determine who deals
         self.dealer = self.get_dealer()
+        self.pone = 1 - self.dealer
         # Play until
         while self.players[0].score < 121 and self.players[1].score < 121:
             self.deal_hands()
             self.get_discards()
             self.get_upcard()
             # TODO pegging
-            self.count_hands()
-            # Switch dealer
-            self.dealer = 1 - self.dealer
-            # TODO count_crib
+            self.show_hands()
+
+            # Switch dealer and pone
+            self.dealer = self.pone
+            self.pone = 1 - self.dealer
 
 
 # Jump right into the part I'm currently testing
@@ -465,7 +464,8 @@ def jumpToTest():
              Card(10, 'h')]
     game.players[0].hand.upcard = game.players[1].hand.upcard = game.upcard = Card(
         10, 's')
-    game.count_hands()
+    game.show_hands()
+    game.players[0].add_points(40)
     exit()
 
 

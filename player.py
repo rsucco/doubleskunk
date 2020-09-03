@@ -6,7 +6,9 @@ import random
 
 # Base Player class
 class Player:
-    def __init__(self):
+    def __init__(self, victory_callback, player_num):
+        self.victory = victory_callback
+        self.player_num = player_num
         self.score = 0
         self.last_score = -1
         self.hand = Hand()
@@ -21,12 +23,15 @@ class Player:
         if points > 1:
             self.last_score = self.score
             self.score += points
+        if self.score >= 121:
+            self.score = 121
+            self.victory(self.player_num)
 
 
 # Class for human player
 class HumanPlayer(Player):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, victory_callback, player_num):
+        super().__init__(victory_callback, player_num)
 
     def cut_deck(self, set_message):
         set_message(
@@ -129,10 +134,10 @@ class HumanPlayer(Player):
 
 # Class for AI player
 class AIPlayer(Player):
-    def __init__(self, difficulty, verbose=False):
-        super().__init__()
-        self.difficulty = difficulty
-        self.verbose = verbose
+    def __init__(self, victory_callback, player_num, **kwargs):
+        super().__init__(victory_callback, player_num)
+        self.difficulty = kwargs['difficulty']
+        self.verbose = kwargs['verbose']
 
     def cut_deck(self, *args):
         return random.randint(4, 36)
