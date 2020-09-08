@@ -57,6 +57,9 @@ class Card:
     def __hash__(self):
         return hash((self.rank, self.suit))
 
+    def __copy__(self):
+        return Card(self.num_rank, self.suit)
+
     def follows(self, other):
         if self.num_rank == other.num_rank + 1:
             return True

@@ -4,6 +4,7 @@ from deck import Deck
 from itertools import chain, combinations
 from statistics import mean, pstdev
 from sys import maxsize
+import copy
 
 
 class Hand:
@@ -14,6 +15,9 @@ class Hand:
 
     def __str__(self):
         return ' '.join(str(card) for card in sorted(self.cards, key=lambda card: card.num_rank) if card.num_rank != 0)
+
+    def __copy__(self):
+        return Hand(copy.copy(self.cards), copy.copy(self.upcard), self.is_crib)
 
     # Return all of the cards of the hand plus the upcard as a single list of Cards
     def allCards(self):
@@ -46,20 +50,33 @@ class Hand:
                     fifteens.add(Score(combo, 2))
         return fifteens
 
-    # A pair is 2 of a kind for 2 points, pair royal is 3 of a kind of 6 points, and pair double royal is 4 of a kind for 12
-    def count_pairs(self):
+    # A pair is 2 of a kind for 2 points
+    def count_pairs(self, pair_size=2, exclude_duplicates=True):
         pairs = set()
+        # Pair royal is 3 of a kind for 6 points
+        if pair_size == 3:
+            points = 6
+        # Pair double royal is 4 of a kind for 12
+        elif pair_size == 4:
+            points = 12
+        # Boring old normal pair
+        else:
+            points = 2
         # Iterate through every combination of two cards. If they match, they're a pair
-        card_combos = combinations(self.allCards(), 2)
+        card_combos = combinations(self.allCards(), pair_size)
         for combo in card_combos:
-            if combo[0].rank == combo[1].rank:
-                pairs.add(Score(combo, 2))
+            # All cards in the combo must be the same rank
+            # Don't bother checking for partial duplicates if told not to or if it's a four of a kind
+            # Otherwise, make sure that the total number of cards in the hand of the pair's rank is the same as the size of the combo
+            if all([card.rank == combo[0].rank for card in combo]) and \
+                    (not exclude_duplicates or pair_size == 4 or sum([card.rank == combo[0].rank for card in self.allCards()]) == pair_size):
+                pairs.add(Score(combo, points))
         return pairs
 
     # A run is 3 to 5 cards where the numerical ranks of the cards occur in sequence
     def count_runs(self):
         runs = set()
-        for i in range(5, 2, -1):
+        for i in range(len(list(self.allCards())), 2, -1):
             card_combos = list(combinations(self.allCards(), i))
             for combo in card_combos:
                 # Sort the combination of cards based on numerical rank
