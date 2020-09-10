@@ -53,15 +53,8 @@ class Hand:
     # A pair is 2 of a kind for 2 points
     def count_pairs(self, pair_size=2, exclude_duplicates=True):
         pairs = set()
-        # Pair royal is 3 of a kind for 6 points
-        if pair_size == 3:
-            points = 6
-        # Pair double royal is 4 of a kind for 12
-        elif pair_size == 4:
-            points = 12
-        # Boring old normal pair
-        else:
-            points = 2
+        # 2 of a kind for 2, 3 of a kind for 6, 4 of a kind for 12
+        points = pair_size ** 2 - pair_size
         # Iterate through every combination of two cards. If they match, they're a pair
         card_combos = combinations(self.allCards(), pair_size)
         for combo in card_combos:
@@ -71,7 +64,7 @@ class Hand:
             if all([card.rank == combo[0].rank for card in combo]) and \
                     (not exclude_duplicates or pair_size == 4 or sum([card.rank == combo[0].rank for card in self.allCards()]) == pair_size):
                 pairs.add(Score(combo, points))
-        return pairs
+        return list(pairs)
 
     # A run is 3 to 5 cards where the numerical ranks of the cards occur in sequence
     def count_runs(self):
@@ -88,7 +81,7 @@ class Hand:
                     # There's no point in checking if there aren't any other runs yet
                     if len(runs) == 0 or not any((run.cards.issubset(other_run.cards) for other_run in runs)):
                         runs.add(run)
-        return runs
+        return list(runs)
 
     # A flush is five cards in the same suit (in the hand or the crib) or four cards not including the upcard (in the hand only)
     def count_flush(self):

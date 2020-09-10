@@ -110,7 +110,7 @@ class HumanPlayer(Player):
     # Returns a list of the discards and removes them from its Hand object
     def select_discards(self, set_message, dealer):
         # Update UI
-        base_messages = ['You can use the numbers 2-10 as well as A, T, J, Q, and K',
+        base_messages = ['You can use the numbers 2-10 as well as A, T, J, Q, and K.',
                          '',
                          'If you want to specify, you can include the first letter of the suit:',
                          Card.SPADES + ', ' + Card.HEARTS + ', ' + Card.CLUBS + ', or ' + Card.DIAMONDS,
@@ -135,44 +135,58 @@ class HumanPlayer(Player):
                 # Put discards back in hand
                 for discard in discards:
                     self.hand.cards.append(discard)
+                discards = []
                 if dealer:
-                    set_message(
-                        Style.BRIGHT + 'Your deal.' + Style.RESET_ALL, 'Invalid input. Enter two cards for your crib. (Spacing between them is optional)')
+                    msgs = [Style.BRIGHT + 'Your deal.' + Style.RESET_ALL,
+                            'Invalid input. Enter two cards for your crib. (Spacing between them is optional)']
                 else:
-                    set_message(
-                        Style.BRIGHT + 'Opponent\'s deal.' + Style.RESET_ALL, 'Invalid input. Enter two cards for opponent\'s crib. (Spacing between them is optional)')
-                set_message(*base_messages[:4], append_msg=True)
-                set_message('', 'Example:  \'' + self.hand.cards[0].rank + self.hand.cards[0].suit + self.hand.cards[-1].rank + '\' for ' + str(
-                    self.hand.cards[0]) + ' and a ' + self.hand.cards[-1].rank + ' of unspecified suit.', append_msg=True)
+                    msgs = [Style.BRIGHT + 'Opponent\'s deal.' + Style.RESET_ALL,
+                            Style.BRIGHT + 'Invalid input.' + Style.RESET_ALL + ' Enter two cards for opponent\'s crib. (Spacing between them is optional)']
+                msgs.extend(base_messages[:4])
+                msgs.extend(['', 'Example:  \'' + self.hand.cards[0].rank + self.hand.cards[0].suit + self.hand.cards[-1].rank + '\' for ' + str(
+                    self.hand.cards[0]) + ' and a ' + self.hand.cards[-1].rank + ' of unspecified suit.'])
+                set_message(*msgs)
         return discards
 
     # Get user input to make a pegging play
-
-    def get_peg_play(self, set_message, available_cards, pegging_count, *args):
+    def get_peg_play(self, set_message, available_cards, pegging_count, opponent_go, *args):
+        # Return a go automatically if there aren't any cards
+        if len(available_cards.cards) == 0:
+            return -1
         # Update UI
         base_messages = [Style.BRIGHT + 'Your turn.' + Style.RESET_ALL + ' Enter a card to play and press enter.',
-                         'You can use the numbers 2-10 as well as A, T, J, Q, and K', 'Available cards: ' + str(available_cards)]
+                         'You can use the numbers 2-10 as well as the letters A, T, J, Q, and K.', '', 'Available cards: ' + str(available_cards)]
         # Make sure the player has a valid card to play
         if any([card.value + pegging_count <= 31 for card in available_cards.cards]):
-            set_message(*base_messages)
-            while True:
-                try:
-                    discard_input = self.get_card_input(1)
-                    if discard_input[0] in [card.num_rank for card in available_cards.cards]:
-                        return discard_input[0]
-                    else:
-                        raise Exception
-                except Exception:
-                    traceback.print_exc()
-                    set_message(Style.BRIGHT + 'Invalid input. Your turn.' + Style.RESET_ALL +
-                                ' Enter a card to play and press enter.')
-                    set_message(*base_messages[1:], append_msg=True)
-                    continue
+            # Make it easy for them if they only have one card
+            if len(available_cards.cards) == 1:
+                set_message(Style.BRIGHT + 'Your turn.' + Style.RESET_ALL +
+                            ' Press enter to play your last card.', '', base_messages[-1])
+                return available_cards.cards[0].num_rank
+            else:
+                set_message(*base_messages)
+                # Keep trying until we get valid input from the player
+                while True:
+                    try:
+                        discard_input = self.get_card_input(1)
+                        if discard_input[0] in [card.num_rank for card in available_cards.cards] and discard_input[0] + pegging_count <= 31:
+                            return discard_input[0]
+                        else:
+                            raise Exception
+                    except Exception:
+                        traceback.print_exc()
+                        set_message(Style.BRIGHT + 'Invalid input. Your turn.' + Style.RESET_ALL +
+                                    ' Enter a card to play and press enter.')
+                        set_message(*base_messages[1:], append_msg=True)
+                        continue
         # Return a go if nothing plays
         else:
-            set_message(Style.BRIGHT + 'Your turn. Press enter to say \'go\'!' +
-                        Style.RESET_ALL, base_messages[2])
-            input()
+            # If the opponent hasn't given a go, that means we'll be saying go. Tell the player as much.
+            if not opponent_go:
+                set_message(Style.BRIGHT + 'Your turn. Press enter to say \'go\'!' +
+                            Style.RESET_ALL, base_messages[-1])
+                input()
+            # If the opponent has already said go, then we'll be scoring a point, so don't print the sad message
             return -1
 
 
@@ -191,7 +205,7 @@ class AIPlayer(Player):
         self.hand.cards = self.hand.cards[2:]
         return discards
 
-    def get_peg_play(self, set_cards, available_cards, pegging_count, played_cards):
+    def get_peg_play(self, set_cards, available_cards, pegging_count, opponent_go, played_cards):
         play_card = [
             card.num_rank for card in available_cards.cards if card.num_rank + pegging_count <= 31]
         if len(play_card) > 0:

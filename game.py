@@ -6,10 +6,11 @@ from player import Player, HumanPlayer, AIPlayer
 from message import Message
 from colorama import Fore, Back, Style, init
 from os import system, name
-from sys import exit
 from time import sleep
+import sys
 import copy
 import traceback
+import itertools
 
 
 class Game:
@@ -40,6 +41,7 @@ class Game:
         self.upcard = Card()
         self.pegging_cards = []
         self.pegging_count = -1
+        self.dealer = -1
 
     # Clear the screen with the appropriate terminal command for the system
     def clear(self):
@@ -222,10 +224,18 @@ class Game:
         return render_strs
 
     def render_ui_score(self, render_strs, player):
+        if player == 0:
+            player_start = Fore.RED
+        elif player == 1:
+            player_start = Fore.GREEN
         render_strs[0] += '     ╓──────────╖'
-        render_strs[1] += '     ║ P' + str(player + 1) + ' Score ║'
-        render_strs[2] += '     ║   ' + \
-            str(self.players[player].score).center(5) + '  ║'
+        render_strs[1] += '     ║ ' + player_start + 'P' + \
+            str(player + 1) + ' Score' + Style.RESET_ALL + ' ║'
+        render_strs[2] += '     ║   '
+        if player == self.dealer:
+            render_strs[2] += Back.LIGHTBLACK_EX + Style.BRIGHT
+        render_strs[2] += str(self.players[player].score).center(5) + \
+            Style.RESET_ALL + '  ║'
         render_strs[3] += '     ╙──────────╜'
         return render_strs
 
@@ -233,30 +243,23 @@ class Game:
         # Construct the cards piece of the interface
         card_strs = []
         # Generate a seperate line for each sequence of pegging cards
-        for i, sequence in enumerate(self.pegging_cards):
-            # Offset the second and third rows
-            if i == 1:
-                card_str = '   ' * len(self.pegging_cards[0])
-            elif i == 2:
-                card_str = '   ' * \
-                    len(self.pegging_cards[0]) + \
-                    '   ' * len(self.pegging_cards[1])
-            else:
-                card_str = ''
-            card_str += ' '.join(str(card) for card in sequence)
+        offset = ''
+        for sequence in self.pegging_cards:
+            card_str = offset + ' '.join(str(card) for card in sequence)
             card_strs.append(Message(str(card_str)))
-        # Make size consistently 3
-        for i in range(3 - len(card_strs)):
+            offset += '   ' * len(sequence)
+        # Make height at least 2
+        for i in range(2 - len(card_strs)):
             card_strs.append(Message(''))
         # The messages rendering already makes a nice box around it, so no need to reinvent the wheel here
-        card_strs = self.render_ui_messages(card_strs, 27)
+        card_strs = self.render_ui_messages(card_strs, 27, 27)
         # Construct the pegging count
-        count_strs = self.render_ui_messages(
-            [Message(' Count:'), Message('   ' + str(self.pegging_count)), Message('')], 10)
+        count_strs = [Message(' Count:'), Message(
+            '   ' + str(self.pegging_count))]
+        count_strs = self.render_ui_messages(count_strs, 10, 50)
         # Combine them and return the result
-        render_strs = []
-        for i in range(5):
-            render_strs.append(card_strs[i] + count_strs[i])
+        render_strs = [card + count for card,
+                       count in itertools.zip_longest(card_strs, count_strs, fillvalue='')]
         return render_strs
 
     # Draw the board based on current scores
@@ -264,7 +267,7 @@ class Game:
         print()
         # Row 1
         print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK +
-              '           0                     10                      20                      30                      40                      50                     60   ' + Style.RESET_ALL)
+              '           0                     10                      20                      30                      40                      50                      60  ' + Style.RESET_ALL)
         print(self.render_board_top(1))
         for score_str in self.render_board_score(1):
             print(score_str)
@@ -406,34 +409,34 @@ class Game:
         go = [False, False]
         # Update the rounds counter and add another list for the pegging UI
         rounds_played = 0
-        round_over = False
 
         # Keep pegging as long as at least 1 player has cards
         while any([len(hand.cards) > 0 for hand in pegging_hands]):
             # Make sure the current player hasn't said go already and that they have cards
             if not go[player_up] and len(pegging_hands[player_up].cards) > 0:
                 # Get pegging input from either a human or AI player
-                # Passing it the set_message callback, available cards, the pegging count, and cards played so far
+                # Passing it the set_message callback, available cards, the pegging count, the 'go' status of the opponent, and cards played so far
                 peg_input = self.players[player_up].get_peg_play(
-                    self.set_message, pegging_hands[player_up], self.pegging_count, self.pegging_cards)
-            # If the player has said go, skip their turn
+                    self.set_message, pegging_hands[player_up], self.pegging_count, go[1 - player_up], self.pegging_cards)
+            # If the player has said go or has no cards, skip their turn
             else:
+                # Make sure their go status is go, in case they failed the 'no cards' check
+                go[player_up] = True
                 player_up = 1 - player_up
                 continue
             # Player objects will return -1 for a go
             if peg_input == -1:
                 go[player_up] = True
                 # If both players have said go, then the last one to say it scores a point
-                # The opposing player counts as saying 'go' for these purposes if they're out of cards
-                if all(go):
+                # If the player up ran out of cards after the opponent already said go, that counts for a go still
+                if all(go) or (go[1 - player_up] and len(pegging_hands[player_up].cards) == 0):
                     self.players[player_up].add_points(1)
                     self.set_message(
                         'Player ' + str(player_up + 1) +
                         ' scores 1 point for a go.')
-                    round_over = True
                 else:
                     self.set_message(
-                        'Player ' + str(player_up + 1) + ' says \'go\'!',)
+                        'Player ' + str(player_up + 1) + ' says \'go\'!')
             # If it's not a go, it's the numerical rank of the card to play. Suit doesn't matter for this phase
             else:
                 # Remove the played card from the temporary pegging hand and append it to the played pegging cards list
@@ -454,11 +457,12 @@ class Game:
                     for i in range(len(self.pegging_cards[rounds_played]), 2, -1):
                         candidate_run = Hand(
                             self.pegging_cards[rounds_played][-i:]).count_runs()
-                        # Check if a run was found. If one was, break, since duplicates aren't allowed
-                        if len(candidate_run) > 0:
+                        # Check if a run was found and that its score matches what we're looking for
+                        if len(candidate_run) > 0 and candidate_run[0].points == i:
                             scores.append('Player ' + str(player_up + 1) + ' scores ' + str(
-                                i) + ' points for a ' + str(i) + '-card run' + '!' * i - 2)
+                                i) + ' points for a ' + str(i) + '-card run' + '!' * (i - 2))
                             score += i
+                            # If one was, break, since we only want one
                             break
 
                 # Check for 2, 3, or 4 of a kind
@@ -468,11 +472,10 @@ class Game:
                         candidate_pair = Hand(
                             self.pegging_cards[rounds_played][-i:]).count_pairs(i)
                         if len(candidate_pair) > 0:
-                            # Size of the pair squared minus size is the formula for calculating pair value
-                            pair_value = i ^ 2 - i
+                            pair = candidate_pair[0]
                             msg = 'Player ' + \
                                 str(player_up + 1) + ' scores ' + \
-                                str(pair_value) + \
+                                str(pair.points) + \
                                 ' points for a '
                             if i == 2:
                                 msg += 'pair.'
@@ -481,45 +484,43 @@ class Game:
                             elif i == 4:
                                 msg += 'pair double royal!!!!!!'
                             scores.append(msg)
-                            score += pair_value
+                            score += pair.points
                             break
+
+                # A count equal to 15 is worth 2 points
+                if self.pegging_count == 15:
+                    score += 2
+                    scores.append('Player ' + str(player_up + 1) +
+                                  ' scores 2 points for 15.')
 
                 # 31 scores 2 points and starts a new round without a go
                 if self.pegging_count == 31:
                     score += 2
                     scores.append('Player ' + str(player_up + 1) +
                                   ' scores 2 points for 31.')
-                    round_over = True
-                # A count equal to 15 is worth 2 points
-                elif self.pegging_count == 15:
-                    score += 2
-                    scores.append('Player ' + str(player_up + 1) +
-                                  ' scores 2 points for 15.')
                 # Last card scores 1 point if it's not 31
                 elif not any([len(hand.cards) > 0 for hand in pegging_hands]):
                     score += 1
                     scores.append('Player ' + str(player_up + 1) +
-                                  ' scores 1 points for last card.')
-                    round_over = True
+                                  ' scores 1 point for last card.')
+                # Print scores for the play and add points if there were any
                 if len(scores) > 0:
                     self.players[player_up].add_points(score)
                     self.set_message(*scores, append_msg=True)
             self.set_message('Press enter to continue.', append_msg=True)
             input()
-            # Reset for the next round if needed
-            if round_over:
+            # Reset for the next round if both players either have an empty hand or have said go, or if the count is 31
+            if all([len(hand.cards) == 0 or go[i] for i, hand in enumerate(pegging_hands)]) or self.pegging_count == 31:
                 self.pegging_cards.append([])
                 self.pegging_count = 0
                 rounds_played += 1
-                # Go should be set to true if the player has no cards, false otherwise
+                # If a player has no cards, make sure their go status is True, otherwise reset
                 go = [len(hand.cards) == 0 for hand in pegging_hands]
-                round_over = False
-            # Next player is up next loop
+            # Next player is up
             player_up = 1 - player_up
         # Reset the pegging count UI state
         self.pegging_count = -1
         self.pegging_cards = []
-        return
 
     # Count a hand, displaying information about the count in the UI
     def count_hand(self, hand):
@@ -572,9 +573,9 @@ class Game:
             message.append('Nibs for ' + str(running_score) + ':')
             # You can only have nibs once, list size will be one
             message.append(str(scores['nibs'][0]))
+        message.append('')
         message.append(Style.BRIGHT + 'Total score: ' +
                        str(running_score) + Style.RESET_ALL)
-        message.append('')
         self.set_message(*message, append_msg=True)
         return running_score
 
@@ -628,58 +629,3 @@ class Game:
             # Switch dealer and pone
             self.dealer = self.pone
             self.pone = 1 - self.dealer
-
-
-# Jump right into the part I'm currently testing
-def jumpToTest():
-    game = Game(1, 3, True)
-    game.dealer = 1
-    game.pone = 0
-    cards = [Card(5, 's'),
-             Card(5, 'h'),
-             Card(5, 'd'),
-             Card(6, 'd')]
-    game.players[0].hand = Hand(cards)
-    cards = [Card(11, 'c'),
-             Card(11, 's'),
-             Card(11, 'd'),
-             Card(11, 'h')]
-    game.players[1].hand = Hand(cards)
-    cards = [Card(7, 'h'),
-             Card(8, 'h'),
-             Card(9, 'h'),
-             Card(10, 'h')]
-    game.crib = Hand(cards)
-
-    game.crib.upcard = game.players[0].hand.upcard = game.players[1].hand.upcard = game.upcard = Card(
-        10, 's')
-    game.show_hands()
-    game.players[0].add_points(40)
-    exit()
-
-
-num_players = input('Enter 1 or 2 for number of players (default 1):')
-if num_players == '2':
-    num_players = 2
-    difficulty = 0
-elif num_players == 'test':
-    jumpToTest()
-else:
-    num_players = 1
-try:
-    difficulty = input(
-        'Enter 1 for easy difficulty, 2 for medium, 3 for hard (default 2):')
-    debug = False
-    if difficulty[-1] == 'D':
-        verify = input(
-            'Did you mean to enable debug mode? y/n (default n):')[0].lower()
-        if verify == 'y':
-            debug = True
-        difficulty = int(difficulty[0])
-except Exception:
-    difficulty = 2
-    debug = False
-
-
-game = Game(num_players, difficulty, debug)
-game.play()

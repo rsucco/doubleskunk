@@ -12,6 +12,9 @@ I plan to test and build this for Arch Linux, Ubuntu, macOS, and Windows 10 even
     pip3 install colorama pyfiglet
 
 #### Play:
-You can launch a game by running the main game class.
+You can launch a game by making doubleskunk.py executable and running it.
 
-    python3 game.py
+    chmod +x doubleskunk.py
+    ./doubleskunk.py
+
+You can use the `-p` flag to set 1 or 2 players and the `-d` flag to set difficulty betwixt 1 and 3.
