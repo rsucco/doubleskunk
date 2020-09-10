@@ -169,7 +169,7 @@ class HumanPlayer(Player):
                 while True:
                     try:
                         discard_input = self.get_card_input(1)
-                        if discard_input[0] in [card.num_rank for card in available_cards.cards] and discard_input[0] + pegging_count <= 31:
+                        if discard_input[0] in [card.num_rank for card in available_cards.cards] and Card(discard_input[0]).value + pegging_count <= 31:
                             return discard_input[0]
                         else:
                             raise Exception
