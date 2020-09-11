@@ -160,8 +160,6 @@ class HumanPlayer(Player):
         if any([card.value + pegging_count <= 31 for card in available_cards.cards]):
             # Make it easy for them if they only have one card
             if len(available_cards.cards) == 1:
-                set_message(Style.BRIGHT + 'Your turn.' + Style.RESET_ALL +
-                            ' Press enter to play your last card.', '', base_messages[-1])
                 return available_cards.cards[0].num_rank
             else:
                 set_message(*base_messages)

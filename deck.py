@@ -1,4 +1,5 @@
 from card import Card
+from typing import Dict, List
 import random
 
 
@@ -19,16 +20,8 @@ class Deck:
     def shuffle(self):
         random.shuffle(self.cards)
 
-    # Deal card(s) from the deck
-    def deal_card(self, num=1):
-        deal_cards = self.cards[0:num]
-        self.cards = self.cards[num:]
-        return deal_cards
-
     # Deal two 6-card hands properly
-    def deal_hands(self):
-        hands = {}
-        hands['dealer'] = self.cards[:12:2]
-        hands['pone'] = self.cards[1:13:2]
+    def deal_hands(self) -> Dict[str, List[Card]]:
+        hands = {'dealer': self.cards[:12:2], 'pone': self.cards[1:13:2]}
         self.cards = self.cards[12:]
         return hands

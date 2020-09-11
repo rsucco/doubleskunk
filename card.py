@@ -51,7 +51,7 @@ class Card:
 
     # Less than is determined by rank
     def __lt__(self, other):
-        return self.num_rank() < other.num_rank()
+        return self.num_rank < other.num_rank
 
     # Rank and suit are enough to make the object unique
     def __hash__(self):
@@ -60,7 +60,7 @@ class Card:
     def __copy__(self):
         return Card(self.num_rank, self.suit)
 
-    def follows(self, other):
+    def follows(self, other) -> bool:
         if self.num_rank == other.num_rank + 1:
             return True
         else:

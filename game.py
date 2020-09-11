@@ -1,18 +1,16 @@
 from card import Card
-from score import Score
 from deck import Deck
 from hand import Hand
 from player import Player, HumanPlayer, AIPlayer
 from message import Message
 from colorama import Fore, Back, Style, init
 from os import system, name
-from time import sleep
-import sys
+from typing import List
 import copy
-import traceback
 import itertools
 
 
+# noinspection PyBroadException
 class Game:
     BOARD_SPACE = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' '
 
@@ -42,6 +40,7 @@ class Game:
         self.pegging_cards = []
         self.pegging_count = -1
         self.dealer = -1
+        self.pone = -1
 
     # Clear the screen with the appropriate terminal command for the system
     def clear(self):
@@ -53,7 +52,8 @@ class Game:
                 system('clear')
 
     # Render the top of a score section
-    def render_board_top(self, starting_point=1):
+    @staticmethod
+    def render_board_top(starting_point=1) -> List[str]:
         render_str = Style.BRIGHT + Back.LIGHTYELLOW_EX + \
             Style.DIM + Fore.BLACK + '  ╓─────╖ '
         for i in range(60):
@@ -69,7 +69,8 @@ class Game:
         return render_str
 
     # Render the bottom of a score section
-    def render_board_bottom(self, starting_point=1):
+    @staticmethod
+    def render_board_bottom(starting_point=1) -> List[str]:
         render_str = Style.BRIGHT + Back.LIGHTYELLOW_EX + \
             Style.DIM + Fore.BLACK + '  ╙─────╜ '
         for i in range(60):
@@ -111,7 +112,7 @@ class Game:
 
     # Render the score section of the board
     def render_board_score(self, starting_point=1):
-        # Verticle separator character constant
+        # Vertical separator character constant
         VERT = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + '║'
         # Separate strings for each line of the score
         render_strs = [self.BOARD_SPACE * 2,
@@ -193,26 +194,24 @@ class Game:
                     render_strs[2] += ' ' + VERT
         return render_strs
 
-    def render_ui_messages(self, messages, width=80, margin_left=10):
-        render_strs = []
-        render_strs.append(
-            ' ' * margin_left + '╓' + '─' * (width) + '╖')
+    @staticmethod
+    def render_ui_messages(messages, width=80, margin_left=10):
+        render_strs = [' ' * margin_left + '╓' + '─' * width + '╖']
         for message in messages:
             render_strs.append(' ' * margin_left + '║ ' +
                                message.ljust(width) + ' ║')
         render_strs.append(
-            ' ' * margin_left + '╙' + '─' * (width) + '╜')
+            ' ' * margin_left + '╙' + '─' * width + '╜')
         return render_strs
 
-    def render_ui_hand(self, render_strs, player=1, width=25, margin_left=35):
-        if player == 1:
-            padded_hand = Message(str(self.players[0].hand))
-        render_strs[0] += ' ' * margin_left + '╓' + '─' * (width) + '╖'
+    def render_ui_hand(self, render_strs, player, width=25, margin_left=35):
+        padded_hand = Message(str(self.players[player].hand))
+        render_strs[0] += ' ' * margin_left + '╓' + '─' * width + '╖'
         render_strs[1] += ' ' * margin_left + '║' + \
             'Your hand'.center(width) + '║'
         render_strs[2] += ' ' * margin_left + '║' + \
             padded_hand.center(width) + '║'
-        render_strs[3] += ' ' * margin_left + '╙' + '─' * (width) + '╜'
+        render_strs[3] += ' ' * margin_left + '╙' + '─' * width + '╜'
         return render_strs
 
     def render_ui_upcard(self, render_strs):
@@ -226,7 +225,7 @@ class Game:
     def render_ui_score(self, render_strs, player):
         if player == 0:
             player_start = Fore.RED
-        elif player == 1:
+        else:
             player_start = Fore.GREEN
         render_strs[0] += '     ╓──────────╖'
         render_strs[1] += '     ║ ' + player_start + 'P' + \
@@ -242,7 +241,7 @@ class Game:
     def render_ui_pegging(self):
         # Construct the cards piece of the interface
         card_strs = []
-        # Generate a seperate line for each sequence of pegging cards
+        # Generate a separate line for each sequence of pegging cards
         offset = ''
         for sequence in self.pegging_cards:
             card_str = offset + ' '.join(str(card) for card in sequence)
@@ -266,8 +265,9 @@ class Game:
     def draw_board(self):
         print()
         # Row 1
-        print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK +
-              '           0                     10                      20                      30                      40                      50                      60  ' + Style.RESET_ALL)
+        print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' ' * 11 +
+              '0                     10                      20                      30                      40       '
+              '               50                      60  ' + Style.RESET_ALL)
         print(self.render_board_top(1))
         for score_str in self.render_board_score(1):
             print(score_str)
@@ -278,14 +278,15 @@ class Game:
         for score_str in self.render_board_score(61):
             print(f'{score_str}')
         print(self.render_board_bottom(61))
-        print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK +
-              '         120                     110                     100                     90                      80                      70                      60  ' + Style.RESET_ALL)
+        print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' ' * 9 +
+              '120                     110                     100                     90                      80     '
+              '                 70                      60  ' + Style.RESET_ALL)
 
     # Draw the informational UI
     def draw_ui(self):
         print()
         render_strs = ['', '', '', '']
-        render_strs = self.render_ui_hand(render_strs)
+        render_strs = self.render_ui_hand(render_strs, 0)
         render_strs = self.render_ui_upcard(render_strs)
         for i in range(2):
             render_strs = self.render_ui_score(render_strs, i)
@@ -306,7 +307,6 @@ class Game:
         self.draw_board()
         self.draw_ui()
         if self.debug:
-            debug_msg = []
             print('\n--------------\nDEBUG:')
             print('WHOLE DECK:')
             print(Hand(self.deck.cards))
@@ -344,7 +344,7 @@ class Game:
                 self.set_message)]
             p2_cut = p1_cut
             # Make sure they don't accidentally cut the exact same card
-            # TODO Fix this to have player 2 cut the remainder of the deck after player 1's cut rather than cutting the entire deck twice
+            #  TODO Fix this to have player 2 cut the remainder of the deck after player 1's cut rather than cutting the entire deck twice
             while p2_cut == p1_cut:
                 p2_cut = self.deck.cards[self.players[1].cut_deck(
                     self.set_message)]
@@ -418,23 +418,22 @@ class Game:
                 # Passing it the set_message callback, available cards, the pegging count, the 'go' status of the opponent, and cards played so far
                 peg_input = self.players[player_up].get_peg_play(
                     self.set_message, pegging_hands[player_up], self.pegging_count, go[1 - player_up], self.pegging_cards)
-            # If the player has said go or has no cards, skip their turn
+            # If the player has said go, skip their turn
             else:
-                # Make sure their go status is go, in case they failed the 'no cards' check
                 go[player_up] = True
                 player_up = 1 - player_up
                 continue
             # Player objects will return -1 for a go
             if peg_input == -1:
+                already_said = go[player_up]
                 go[player_up] = True
                 # If both players have said go, then the last one to say it scores a point
-                # If the player up ran out of cards after the opponent already said go, that counts for a go still
-                if all(go) or (go[1 - player_up] and len(pegging_hands[player_up].cards) == 0):
+                if all(go):
                     self.players[player_up].add_points(1)
                     self.set_message(
                         'Player ' + str(player_up + 1) +
                         ' scores 1 point for a go.')
-                else:
+                elif not already_said:
                     self.set_message(
                         'Player ' + str(player_up + 1) + ' says \'go\'!')
             # If it's not a go, it's the numerical rank of the card to play. Suit doesn't matter for this phase
@@ -503,6 +502,13 @@ class Game:
                     score += 1
                     scores.append('Player ' + str(player_up + 1) +
                                   ' scores 1 point for last card.')
+                # If the player played their last card and the opponent will have to say go, give them a go
+                elif len(pegging_hands[player_up].cards) == 0 and \
+                        not any([card.value + self.pegging_count <= 31 for card in pegging_hands[1 - player_up].cards]):
+                    score += 1
+                    scores.append('Player ' + str(player_up + 1) +
+                                  ' scores 1 point for a go.')
+                    go = [True, True]
                 # Print scores for the play and add points if there were any
                 if len(scores) > 0:
                     self.players[player_up].add_points(score)
