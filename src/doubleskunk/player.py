@@ -1,10 +1,9 @@
-from hand import Hand
-from card import Card
-from deck import Deck
+from src.doubleskunk.hand import Hand
+from src.doubleskunk.card import Card
+from src.doubleskunk.deck import Deck
 from itertools import combinations
 from statistics import pstdev, mean
-from sys import maxsize
-from colorama import Fore, Back, Style
+from colorama import Style
 import traceback
 import random
 

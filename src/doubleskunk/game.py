@@ -1,8 +1,8 @@
-from card import Card
-from deck import Deck
-from hand import Hand
-from player import Player, HumanPlayer, AIPlayer
-from message import Message
+from src.doubleskunk.card import Card
+from src.doubleskunk.deck import Deck
+from src.doubleskunk.hand import Hand
+from src.doubleskunk.player import HumanPlayer, AIPlayer
+from src.doubleskunk.message import Message
 from colorama import Fore, Back, Style, init
 from os import system, name
 from typing import List

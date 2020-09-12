@@ -1,5 +1,5 @@
-from card import Card
-from score import Score
+from src.doubleskunk.card import Card
+from src.doubleskunk.score import Score
 from itertools import chain, combinations
 import copy
 
