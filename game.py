@@ -265,8 +265,8 @@ class Game:
     def draw_board(self):
         print()
         # Row 1
-        print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' ' * 11 +
-              '0                     10                      20                      30                      40       '
+        print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' ' * 10 +
+              '0                      10                      20                      30                      40       '
               '               50                      60  ' + Style.RESET_ALL)
         print(self.render_board_top(1))
         for score_str in self.render_board_score(1):
@@ -376,9 +376,9 @@ class Game:
     # Get discards from both players to the crib
     def get_discards(self):
         self.crib = Hand(self.players[0].select_discards(
-            self.set_message, self.dealer == 0), is_crib=True)
+            self.set_message, self.dealer == 0, self.players[1].score), is_crib=True)
         self.crib.cards.extend(self.players[1].select_discards(
-            self.set_message, self.dealer == 1))
+            self.set_message, self.dealer == 1, self.players[0].score))
         self.draw_game()
 
     # Cut the deck to get the upcard

@@ -1,9 +1,6 @@
 from card import Card
 from score import Score
-from deck import Deck
 from itertools import chain, combinations
-from statistics import mean, pstdev
-from sys import maxsize
 import copy
 
 
@@ -39,6 +36,20 @@ class Hand:
                 return card
         raise Exception(str(num_rank) + ' of ' +
                         suit + ' does not exist in hand.')
+
+    # Count the entire hand and return just the score
+    def count(self):
+        count_methods = [self.count_15s, lambda: self.count_pairs(2), lambda: self.count_pairs(3),
+                         lambda: self.count_pairs(4), self.count_runs, self.count_flush, self.count_nibs]
+        scores = []
+        for method in count_methods:
+            results = method()
+            if len(results) > 0:
+                scores.extend(results)
+        if len(scores) > 0:
+            return sum([score.points for score in scores])
+        else:
+            return 0
 
     # Each distinct combination of cards that adds up to 15 is worth 2 points
     def count_15s(self):
@@ -108,133 +119,3 @@ class Hand:
             if card.rank == 'J' and card.suit == self.upcard.suit:
                 return [Score((card, self.upcard), 1)]
         return []
-
-    # Analyze a hand of 6 cards and determine the mathematically optimal discards
-    # TODO Move this to AIPlayer
-    def best_discard(self, dealer=True, verbose=False):
-        if len(self.cards) <= 5:
-            raise Exception("Can only analyze best discard for 6-card hands")
-        # Create a Deck object to represent all the potential upcards
-        deck_remainder = Deck()
-        deck_remainder.cards = [
-            card for card in deck_remainder.cards if card not in self.cards]
-        # Two cards must be discarded, leaving us with a 4-card hand to be analyzed
-        potential_hands = list(Hand(hand)
-                               for hand in combinations(self.cards, 4))
-
-        # Get stats about how each hand performs and how their associated discards are expected to play in the crib
-        all_hands = []
-        for hand in potential_hands:
-            # Count the hand with each upcard
-            upcard_counts = []
-            for upcard in deck_remainder.cards:
-                hand.upcard = upcard
-                upcard_counts.append((upcard, hand.count()))
-
-            # Calculate all the stats we need for the hand
-            hand_info = {}
-            counts = [count[1] for count in upcard_counts]
-            # The two cards that aren't in this potential hand are the cards we discarded
-            hand_info['discard'] = [
-                card for card in self.cards if card not in hand.cards]
-            hand_info['avg'] = mean(counts)
-            hand_info['crib_points'] = self.expected_crib_points(
-                hand_info['discard'], dealer)
-            if dealer:
-                hand_info['net_points'] = hand_info['avg'] + \
-                    hand_info['crib_points']
-            else:
-                hand_info['net_points'] = hand_info['avg'] - \
-                    hand_info['crib_points']
-
-            # Store which particular upcards lead to the min/max scores
-            hand_info['max'] = [(Card(), 0)]
-            hand_info['min'] = [(Card(), maxsize)]
-            for count in upcard_counts:
-                if count[1] > hand_info['max'][0][1]:
-                    hand_info['max'] = [count]
-                elif count[1] == hand_info['max'][0][1]:
-                    hand_info['max'].append(count)
-                if count[1] < hand_info['min'][0][1]:
-                    hand_info['min'] = [count]
-                elif count[1] == hand_info['min'][0][1]:
-                    hand_info['min'].append(count)
-            hand_info['std_dev'] = pstdev(counts)
-            # Reset the upcard before storing
-            hand.upcard = Card()
-            hand_info['hand'] = hand
-            # Add all of the hand's info to the list of hands
-            all_hands.append(hand_info)
-        # Sort the hands by total net expected points
-        all_hands = sorted(
-            all_hands, key=lambda x: x['net_points'], reverse=True)
-
-        # Print some info if requested
-        if verbose:
-            for hand in all_hands:
-                print('Discard:', str(Hand(hand['discard'])))
-                print('Your hand:', hand['hand'])
-                if dealer:
-                    net_points_str = 'Expected net points (including potential points in your crib): '
-                    crib_points_str = 'Expected value of your crib: '
-                else:
-                    net_points_str = 'Expected net points (including points against you given to opponent\'s crib): '
-                    crib_points_str = 'Expected value of opponent\'s crib: '
-                print(net_points_str + '{:.2f}'.format(hand['net_points']))
-                print('Expected value of your hand: ' +
-                      '{:.2f}'.format(hand['avg']))
-                print(crib_points_str + str(hand['crib_points']))
-                # Do some string manipulation to make the max and min points look snazzy
-                max_cards = ', '.join([str(card[0]) for card in hand['max']])
-                max_hit_odds = '(' + \
-                    '{:.2f}'.format(len(hand['max']) / 46 * 100) + '% odds)'
-                print('Maximum possible points for your hand (with ' +
-                      max_cards + '):', hand['max'][0][1], max_hit_odds)
-                min_cards = ', '.join([str(card[0]) for card in hand['min']])
-                min_hit_odds = '(' + \
-                    '{:.2f}'.format(len(hand['min']) / 46 * 100) + '% odds)'
-                print('Minimum possible points for your hand (with ' +
-                      min_cards + '):', hand['min'][0][1], min_hit_odds)
-                print('Standard deviation of your hand\'s expected score (the higher the number, the greater the variance): ' +
-                      '{:.2f}'.format(hand['std_dev']))
-                print('\n--------\n')
-
-        # Return the list of discards
-        return all_hands
-
-    # Determine the expected number of points that a given discard will give to the crib
-    # For now, this is implemented via a lookup table created from publically available data
-    # If I can ever figure out a way to calculate it dynamically myself without an unacceptable performance hit, I'll do so
-    # For now, this will have to do
-    def expected_crib_points(self, discards, dealer=True):
-        # Initialize lookup tables for estimated crib points by discard for both dealer and pone
-        DEALER_TABLE = {1: [5.2, 4.4, 4.6, 5.2, 5.2, 3.7, 3.7, 3.7, 3.3, 3.3, 3.5, 3.3, 3.3],
-                        2: [4.4, 5.8, 6.9, 4.6, 5.2, 3.9, 3.9, 3.7, 3.7, 3.6, 3.8, 3.6, 3.6],
-                        3: [4.6, 6.9, 5.9, 5, 5.9, 3.8, 3.8, 3.9, 3.7, 3.6, 3.9, 3.7, 3.7],
-                        4: [5.2, 4.6, 5, 5.5, 6.3, 3.9, 3.7, 3.9, 3.6, 3.4, 3.7, 3.5, 3.5],
-                        5: [5.2, 5.2, 5.9, 6.3, 8.5, 6.4, 5.8, 5.3, 5.1, 6.3, 6.7, 6.4, 6.3],
-                        6: [3.7, 3.9, 3.8, 3.9, 6.4, 5.6, 4.9, 4.6, 4.9, 3, 3.2, 3, 2.9],
-                        7: [3.7, 3.9, 3.8, 3.7, 5.8, 4.9, 5.8, 6.4, 4, 3.1, 3.3, 3.1, 3.1],
-                        8: [3.7, 3.7, 3.9, 3.9, 5.3, 4.6, 6.4, 5.3, 4.5, 3.7, 3.3, 3.1, 3],
-                        9: [3.3, 3.7, 3.7, 3.6, 5.1, 4.9, 4, 4.5, 4.9, 4.1, 3.7, 2.8, 2.8],
-                        10: [3.3, 3.6, 3.6, 3.4, 6.3, 3, 3.1, 3.7, 4.1, 4.6, 4.3, 3.3, 2.7],
-                        11: [3.5, 3.8, 3.9, 3.7, 6.7, 3.2, 3.3, 3.3, 3.7, 4.3, 5.1, 4.5, 3.8],
-                        12: [3.3, 3.6, 3.7, 3.5, 6.4, 3, 3.1, 3.1, 2.8, 3.3, 4.5, 4.5, 3.4],
-                        13: [3.3, 3.6, 3.7, 3.5, 6.3, 2.9, 3.1, 3, 2.8, 2.7, 3.8, 3.4, 4.4]}
-        PONE_TABLE = {1: [5.4, 4.5, 4.7, 5.3, 5.5, 4.4, 4.3, 4.4, 4.1, 3.9, 4.2, 3.9, 3.9],
-                      2: [4.5, 5.7, 6.7, 4.8, 5.5, 4.6, 4.5, 4.4, 4.3, 4.1, 4.4, 4.1, 4.1],
-                      3: [4.7, 6.7, 6, 5.4, 6, 4.4, 4.5, 4.5, 4.3, 4.2, 4.5, 4.2, 4.1],
-                      4: [5.3, 4.8, 5.4, 5.7, 6.5, 4.7, 4.3, 4.4, 4.3, 4, 4.3, 4, 4],
-                      5: [5.5, 5.5, 6, 6.5, 7.4, 6.6, 6.1, 5.6, 5.5, 6.4, 6.7, 6.4, 6.4],
-                      6: [4.4, 4.6, 4.4, 4.7, 6.6, 6.2, 5.8, 5.4, 5.5, 3.9, 4.1, 3.8, 3.8],
-                      7: [4.3, 4.5, 4.5, 4.3, 6.1, 5.8, 6.2, 6.7, 4.8, 3.9, 4.2, 3.9, 3.9],
-                      8: [4.4, 4.4, 4.5, 4.4, 5.6, 5.4, 6.7, 5.8, 5.3, 4.5, 4.1, 3.9, 3.8],
-                      9: [4.1, 4.3, 4.3, 4.3, 5.5, 5.5, 4.8, 5.3, 5.5, 4.8, 4.4, 3.7, 3.7],
-                      10: [3.9, 4.1, 4.2, 4, 6.4, 3.9, 3.9, 4.5, 4.8, 5.1, 5, 4.1, 3.5],
-                      11: [4.2, 4.4, 4.5, 4.3, 6.7, 4.1, 4.2, 4.1, 4.4, 5, 5.5, 5, 4.4],
-                      12: [3.9, 4.1, 4.2, 4, 6.4, 3.8, 3.9, 3.9, 3.7, 4.1, 5, 5, 4],
-                      13: [3.9, 4.1, 4.1, 4, 6.4, 3.8, 3.9, 3.8, 3.7, 3.5, 4.4, 4, 4.8]}
-        if dealer:
-            return DEALER_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
-        else:
-            return PONE_TABLE[discards[0].num_rank][discards[1].num_rank - 1]

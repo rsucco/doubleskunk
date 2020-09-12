@@ -1,5 +1,9 @@
 from hand import Hand
 from card import Card
+from deck import Deck
+from itertools import combinations
+from statistics import pstdev, mean
+from sys import maxsize
 from colorama import Fore, Back, Style
 import traceback
 import random
@@ -35,14 +39,15 @@ class HumanPlayer(Player):
     def __init__(self, victory_callback, player_num):
         super().__init__(victory_callback, player_num)
 
-    def cut_deck(self, set_message):
+    @staticmethod
+    def cut_deck(set_message):
         set_message(
             'Enter number between 4 and 36 or press enter for random cut.', append_msg=True)
         while True:
             try:
                 cut = input()
                 cut = int(cut)
-                if cut >= 4 and cut <= 36:
+                if 4 <= cut <= 36:
                     return cut
                 else:
                     raise Exception
@@ -50,7 +55,8 @@ class HumanPlayer(Player):
                 return random.randint(4, 36)
 
     # Get card input from player
-    def get_card_input(self, num_cards):
+    @staticmethod
+    def get_card_input(num_cards):
         # Filtering constants
         VALID_CHARS = ['2', '3', '4', '5', '6', '7',
                        '8', '9', 't', 'j', 'q', 'k', 'a', 'h', 's', 'd', 'c']
@@ -108,7 +114,7 @@ class HumanPlayer(Player):
 
     # Parse input to determine discard choices.
     # Returns a list of the discards and removes them from its Hand object
-    def select_discards(self, set_message, dealer):
+    def select_discards(self, set_message, dealer, opponent_score):
         # Update UI
         base_messages = ['You can use the numbers 2-10 as well as A, T, J, Q, and K.',
                          '',
@@ -195,18 +201,135 @@ class AIPlayer(Player):
         self.difficulty = kwargs['difficulty']
         self.verbose = kwargs['verbose']
 
-    def cut_deck(self, *args):
+    @staticmethod
+    def cut_deck(*args):
         return random.randint(4, 36)
 
-    def select_discards(self, *args):
-        discards = [self.hand.cards[0], self.hand.cards[1]]
-        self.hand.cards = self.hand.cards[2:]
-        return discards
+    # Selects and returns a list of the discards and removes them from its Hand object
+    def select_discards(self, set_message, dealer, opponent_score):
+        # Get best discards, sorted by highest expected net points
+        best_discards = self.get_best_discards(dealer)
+        # Play more recklessly if justified by the score
+        # The dealer scores 16 points on average between pegging, hand, and crib
+        # If they're likely to get to 121 by their next count, it's better to optimize for hand score instead of net
+        if opponent_score > 104 and not dealer:
+            best_discards = sorted(best_discards, key=lambda x: x['avg'], reverse=True)
+        # Take a moonshot if defeat seems likely anyways
+        elif opponent_score > 110 and ((self.score < 100 and not dealer) or self.score < 90):
+            best_discards = sorted(best_discards, key=lambda x: x['max'], reverse=True)
+        # At the highest difficulty, always make the best play
+        if self.difficulty == 3:
+            discard_index = 0
+        # At medium difficulty, choose randomly between the five best plays
+        elif self.difficulty == 2:
+            discard_index = random.randrange(0, 5)
+        # Yeet two random cards into the crib at easy difficulty
+        else:
+            discard_index = random.randrange(0, len(best_discards))
+        discard = best_discards[discard_index]['discard']
+        self.hand.cards = [card for card in self.hand.cards if card not in discard]
+        return discard
 
-    def get_peg_play(self, set_cards, available_cards, pegging_count, opponent_go, played_cards):
+    @staticmethod
+    def get_peg_play(set_message, available_cards, pegging_count, opponent_go, played_cards):
         play_card = [
             card.num_rank for card in available_cards.cards if card.num_rank + pegging_count <= 31]
         if len(play_card) > 0:
             return play_card[0]
         else:
             return -1
+
+    # Analyze a hand of 6 cards and determine the mathematically optimal discards
+    def get_best_discards(self, dealer):
+        # Create a Deck object to represent all the potential upcards
+        deck_remainder = Deck()
+        deck_remainder.cards = set(self.hand.cards).symmetric_difference(deck_remainder.cards)
+        deck_remainder.cards = [
+            card for card in deck_remainder.cards if card not in self.hand.cards]
+        # Two cards must be discarded, leaving us with a 4-card hand to be analyzed
+        potential_hands = list(Hand(hand)
+                               for hand in combinations(self.hand.cards, 4))
+        # Get stats about how each hand performs and how their associated discards are expected to play in the crib
+        all_hands = []
+        for hand in potential_hands:
+            # Count the hand with each upcard
+            upcard_counts = []
+            for upcard in deck_remainder.cards:
+                hand.upcard = upcard
+                upcard_counts.append((upcard, hand.count()))
+            # Calculate all the stats we need for the hand
+            hand_info = {}
+            counts = [count[1] for count in upcard_counts]
+            # The two cards that aren't in this potential hand are the cards we discarded
+            hand_info['discard'] = [
+                card for card in self.hand.cards if card not in hand.cards]
+            hand_info['avg'] = mean(counts)
+            hand_info['crib_points'] = self.expected_crib_points(
+                hand_info['discard'], dealer)
+            if dealer:
+                hand_info['net_points'] = hand_info['avg'] + \
+                    hand_info['crib_points']
+            else:
+                hand_info['net_points'] = hand_info['avg'] - \
+                    hand_info['crib_points']
+            # Store which particular upcards lead to the min/max scores
+            hand_info['max'] = [(Card(), 0)]
+            hand_info['min'] = [(Card(), 100)]
+            for count in upcard_counts:
+                if count[1] > hand_info['max'][0][1]:
+                    hand_info['max'] = [count]
+                elif count[1] == hand_info['max'][0][1]:
+                    hand_info['max'].append(count)
+                if count[1] < hand_info['min'][0][1]:
+                    hand_info['min'] = [count]
+                elif count[1] == hand_info['min'][0][1]:
+                    hand_info['min'].append(count)
+            hand_info['std_dev'] = pstdev(counts)
+            # Reset the upcard before storing
+            hand.upcard = Card()
+            hand_info['hand'] = hand
+            # Add all of the hand's info to the list of hands
+            all_hands.append(hand_info)
+        # Sort the hands by total net expected points
+        all_hands = sorted(
+            all_hands, key=lambda x: x['net_points'], reverse=True)
+        # Return the list of discards
+        return all_hands
+
+    # Determine the expected number of points that a given discard will give to the crib
+    # For now, this is implemented via a lookup table created from publicly available data
+    # If I can ever figure out a way to calculate it dynamically myself without an unacceptable
+    # performance hit, I'll do so. For now, this will have to do
+    @staticmethod
+    def expected_crib_points(discards, dealer=True):
+        # Initialize lookup tables for estimated crib points by discard for both dealer and pone
+        DEALER_TABLE = {1: [5.2, 4.4, 4.6, 5.2, 5.2, 3.7, 3.7, 3.7, 3.3, 3.3, 3.5, 3.3, 3.3],
+                        2: [4.4, 5.8, 6.9, 4.6, 5.2, 3.9, 3.9, 3.7, 3.7, 3.6, 3.8, 3.6, 3.6],
+                        3: [4.6, 6.9, 5.9, 5, 5.9, 3.8, 3.8, 3.9, 3.7, 3.6, 3.9, 3.7, 3.7],
+                        4: [5.2, 4.6, 5, 5.5, 6.3, 3.9, 3.7, 3.9, 3.6, 3.4, 3.7, 3.5, 3.5],
+                        5: [5.2, 5.2, 5.9, 6.3, 8.5, 6.4, 5.8, 5.3, 5.1, 6.3, 6.7, 6.4, 6.3],
+                        6: [3.7, 3.9, 3.8, 3.9, 6.4, 5.6, 4.9, 4.6, 4.9, 3, 3.2, 3, 2.9],
+                        7: [3.7, 3.9, 3.8, 3.7, 5.8, 4.9, 5.8, 6.4, 4, 3.1, 3.3, 3.1, 3.1],
+                        8: [3.7, 3.7, 3.9, 3.9, 5.3, 4.6, 6.4, 5.3, 4.5, 3.7, 3.3, 3.1, 3],
+                        9: [3.3, 3.7, 3.7, 3.6, 5.1, 4.9, 4, 4.5, 4.9, 4.1, 3.7, 2.8, 2.8],
+                        10: [3.3, 3.6, 3.6, 3.4, 6.3, 3, 3.1, 3.7, 4.1, 4.6, 4.3, 3.3, 2.7],
+                        11: [3.5, 3.8, 3.9, 3.7, 6.7, 3.2, 3.3, 3.3, 3.7, 4.3, 5.1, 4.5, 3.8],
+                        12: [3.3, 3.6, 3.7, 3.5, 6.4, 3, 3.1, 3.1, 2.8, 3.3, 4.5, 4.5, 3.4],
+                        13: [3.3, 3.6, 3.7, 3.5, 6.3, 2.9, 3.1, 3, 2.8, 2.7, 3.8, 3.4, 4.4]}
+        PONE_TABLE = {1: [5.4, 4.5, 4.7, 5.3, 5.5, 4.4, 4.3, 4.4, 4.1, 3.9, 4.2, 3.9, 3.9],
+                      2: [4.5, 5.7, 6.7, 4.8, 5.5, 4.6, 4.5, 4.4, 4.3, 4.1, 4.4, 4.1, 4.1],
+                      3: [4.7, 6.7, 6, 5.4, 6, 4.4, 4.5, 4.5, 4.3, 4.2, 4.5, 4.2, 4.1],
+                      4: [5.3, 4.8, 5.4, 5.7, 6.5, 4.7, 4.3, 4.4, 4.3, 4, 4.3, 4, 4],
+                      5: [5.5, 5.5, 6, 6.5, 7.4, 6.6, 6.1, 5.6, 5.5, 6.4, 6.7, 6.4, 6.4],
+                      6: [4.4, 4.6, 4.4, 4.7, 6.6, 6.2, 5.8, 5.4, 5.5, 3.9, 4.1, 3.8, 3.8],
+                      7: [4.3, 4.5, 4.5, 4.3, 6.1, 5.8, 6.2, 6.7, 4.8, 3.9, 4.2, 3.9, 3.9],
+                      8: [4.4, 4.4, 4.5, 4.4, 5.6, 5.4, 6.7, 5.8, 5.3, 4.5, 4.1, 3.9, 3.8],
+                      9: [4.1, 4.3, 4.3, 4.3, 5.5, 5.5, 4.8, 5.3, 5.5, 4.8, 4.4, 3.7, 3.7],
+                      10: [3.9, 4.1, 4.2, 4, 6.4, 3.9, 3.9, 4.5, 4.8, 5.1, 5, 4.1, 3.5],
+                      11: [4.2, 4.4, 4.5, 4.3, 6.7, 4.1, 4.2, 4.1, 4.4, 5, 5.5, 5, 4.4],
+                      12: [3.9, 4.1, 4.2, 4, 6.4, 3.8, 3.9, 3.9, 3.7, 4.1, 5, 5, 4],
+                      13: [3.9, 4.1, 4.1, 4, 6.4, 3.8, 3.9, 3.8, 3.7, 3.5, 4.4, 4, 4.8]}
+        if dealer:
+            return DEALER_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
+        else:
+            return PONE_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
