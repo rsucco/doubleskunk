@@ -1,8 +1,8 @@
-from src.doubleskunk.card import Card
-from src.doubleskunk.deck import Deck
-from src.doubleskunk.hand import Hand
-from src.doubleskunk.player import HumanPlayer, AIPlayer
-from src.doubleskunk.message import Message
+from card import Card
+from deck import Deck
+from hand import Hand
+from player import HumanPlayer, AIPlayer
+from message import Message
 from colorama import Fore, Back, Style, init
 from os import system, name
 from typing import List
@@ -418,11 +418,13 @@ class Game:
                 # Passing it the set_message callback, available cards, the pegging count, the 'go' status of the opponent, and cards played so far
                 peg_input = self.players[player_up].get_peg_play(
                     self.set_message, pegging_hands[player_up], self.pegging_count, go[1 - player_up], self.pegging_cards)
+                print(peg_input)
             # If the player has said go, skip their turn
             else:
                 go[player_up] = True
                 player_up = 1 - player_up
                 continue
+
             # Player objects will return -1 for a go
             if peg_input == -1:
                 already_said = go[player_up]
@@ -467,7 +469,7 @@ class Game:
                 # Check for 2, 3, or 4 of a kind
                 if len(self.pegging_cards[rounds_played]) >= 2:
                     # Start with the largest possible pair and work down. Don't allow duplicates, so break if we find something
-                    for i in range(len(self.pegging_cards[rounds_played]), 1, -1):
+                    for i in range(min(len(self.pegging_cards[rounds_played]), 4), 1, -1):
                         candidate_pair = Hand(
                             self.pegging_cards[rounds_played][-i:]).count_pairs(i)
                         if len(candidate_pair) > 0:

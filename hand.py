@@ -1,5 +1,5 @@
-from src.doubleskunk.card import Card
-from src.doubleskunk.score import Score
+from card import Card
+from score import Score
 from itertools import chain, combinations
 import copy
 
@@ -38,14 +38,20 @@ class Hand:
                         suit + ' does not exist in hand.')
 
     # Count the entire hand and return just the score
-    def count(self):
+    def count(self, pegging=False):
         count_methods = [self.count_15s, lambda: self.count_pairs(2), lambda: self.count_pairs(3),
                          lambda: self.count_pairs(4), self.count_runs, self.count_flush, self.count_nibs]
+        # Don't count flushes or nibs if pegging
+        if pegging:
+            count_methods = count_methods[:-2]
         scores = []
         for method in count_methods:
             results = method()
             if len(results) > 0:
                 scores.extend(results)
+        # Check for 31 if pegging
+        if pegging and sum(card.num_rank for card in self.cards) == 31:
+            scores.append(Score(self.cards, 2))
         if len(scores) > 0:
             return sum([score.points for score in scores])
         else:

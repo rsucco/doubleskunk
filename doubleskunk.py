@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 import sys
 import argparse
-from src.doubleskunk.game import Game
-from src.doubleskunk.card import Card
-from src.doubleskunk.hand import Hand
+from game import Game
+from card import Card
+from hand import Hand
 
 
 # Jump right into the part I'm currently testing
 def jump_to_test():
     game = Game(1, 3, True)
-    game.dealer = 1
-    game.pone = 0
+    game.dealer = 0
+    game.pone = 1
     cards = [Card(2, 'c'),
              Card(3, 'h'),
              Card(5, 's'),
-             Card(5, 'h'),
-             Card(5, 'd'),
+             Card(7, 'h'),
+             Card(8, 'd'),
              Card(6, 'd')]
     game.players[0].hand = Hand(cards)
-    cards = [Card(11, 'c'),
-             Card(11, 's'),
-             Card(11, 'd'),
-             Card(11, 'h'),
-             Card(12, 'd'),
+    cards = [Card(4, 'c'),
+             Card(5, 'c'),
+             Card(6, 's'),
+             Card(4, 'h'),
+             Card(9, 'd'),
              Card(13, 'h')]
     game.players[1].hand = Hand(cards)
     # cards = [Card(7, 'h'),
@@ -31,6 +31,8 @@ def jump_to_test():
     #          Card(10, 'h')]
     # game.crib = Hand(cards)
     game.get_discards()
+    game.get_upcard()
+    game.pegging()
     exit()
 
 

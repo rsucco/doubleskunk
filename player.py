@@ -1,10 +1,11 @@
-from src.doubleskunk.hand import Hand
-from src.doubleskunk.card import Card
-from src.doubleskunk.deck import Deck
-from itertools import combinations
+from hand import Hand
+from card import Card
+from deck import Deck
+from itertools import combinations, chain
 from statistics import pstdev, mean
 from colorama import Style
 import traceback
+import copy
 import random
 
 
@@ -199,6 +200,7 @@ class AIPlayer(Player):
         super().__init__(victory_callback, player_num)
         self.difficulty = kwargs['difficulty']
         self.verbose = kwargs['verbose']
+        self.known_cards = []
 
     @staticmethod
     def cut_deck(*args):
@@ -226,17 +228,102 @@ class AIPlayer(Player):
         else:
             discard_index = random.randrange(0, len(best_discards))
         discard = best_discards[discard_index]['discard']
+        self.known_cards = copy.copy(discard)
         self.hand.cards = [card for card in self.hand.cards if card not in discard]
         return discard
 
-    @staticmethod
-    def get_peg_play(set_message, available_cards, pegging_count, opponent_go, played_cards):
-        play_card = [
-            card.num_rank for card in available_cards.cards if card.num_rank + pegging_count <= 31]
-        if len(play_card) > 0:
-            return play_card[0]
-        else:
+    def get_peg_play(self, set_message, available_cards, pegging_count, opponent_go, played_cards):
+        # Get remaining cards in the deck. All cards played or seen so far are excluded
+        excluded_cards = list(chain(*played_cards, self.known_cards, self.hand.cards, [self.hand.upcard]))
+        deck = Deck()
+        remaining_cards = {}
+        # Suit doesn't matter, so convert the list of cards to a frequency distribution for easier processing
+        for card in deck.cards:
+            if card not in excluded_cards:
+                remaining_cards[card.num_rank] = remaining_cards.get(card.num_rank, 0) + 1
+        # A card is considered playable if its counting value plus the current count doesn't exceed 31
+        playable_cards = [card for card in available_cards.cards if card.value + pegging_count <= 31]
+        print('playable', ' '.join(str(card) for card in playable_cards))
+        # If no cards are playable, return -1 for a go
+        if len(playable_cards) == 0:
             return -1
+        # If only one card is playable then there's no sense analyzing it
+        elif len(playable_cards) == 1:
+            return playable_cards[0].num_rank
+        # Assign a weight to each playable card based on various factors if more than one is playable
+        else:
+            play_weights = self.get_pegging_weights(playable_cards, played_cards, remaining_cards, pegging_count)
+            print('sorted weights', ', '.join(str(item) for item in play_weights))
+            return play_weights[0].num_rank
+
+    @staticmethod
+    def get_pegging_weights(playable_cards, played_cards, remaining_cards, pegging_count):
+        # Get the cards played so far this round
+        round_cards = played_cards[-1]
+        # The size of the opponent's hand is 4 minus the total number of cards played, not including the number of
+        # cards we've played (which is 4 minus the length of playable_cards)
+        opponent_hand_size = 4 - len(played_cards) + (4 - len(playable_cards))
+
+        # Calculate probability that opponent has a particular card
+        def opponent_card_probability(card, by_value=False):
+            total_remaining_cards = sum(remaining_cards.values())
+            if card.num_rank < 10 or not by_value:
+                num_remaining = remaining_cards[card.num_rank]
+            # If calculating by value, face cards go with 10's
+            else:
+                num_remaining = sum(remaining_cards[i] for i in range(10, 14))
+            # Get the probability that any individual remaining card IS the one in question
+            individual_probability = num_remaining / total_remaining_cards
+            # Calculate the probability that NONE of the cards in the hand are the card in question
+            probability_of_none = (1 - individual_probability) ** opponent_hand_size
+            # Invert it and return, since we want the probability that at least one card IS the card in question
+            return 1 - probability_of_none
+
+        # Initialize weights dictionary
+        play_weights = {card: 0.0 for card in playable_cards}
+        # Analyze the cards. I decided on a heuristic approach here. A brute-force approach would
+        # provide marginally better results, but is very computationally expensive to do in Python
+        # Also, the heuristic approach is arguably a lot more fun to write and easier to follow
+        for card in playable_cards:
+            new_count = pegging_count + card.value
+            new_cards = copy.copy(round_cards)
+            new_cards.append(card)
+            # Avoid counts of 5 or 21 to not give away free points
+            if pegging_count + card.value in {5, 21}:
+                # Calculate likelihood of opponent having a 10 card and multiply it by 2 to determine average negative
+                play_weights[card] -= 2 * opponent_card_probability(Card(10), True)
+                print('5 or 21', card, play_weights[card])
+            # Take counts of 15 or 31 if offered
+            elif pegging_count + card.value in {15, 31}:
+                play_weights[card] += 2
+                print('15 or 31', card, play_weights[card])
+            # Weight for a pair, pair royal, or pair double royal if offered
+            for i in range(min(len(new_cards), 4), 1, -1):
+                # Check the last i cards for an i-sized pair, starting with 4 (if possible) and going down to 2
+                candidate_pair = Hand(new_cards[-i:]).count_pairs(i)
+                if len(candidate_pair) > 0:
+                    # Weight for the number of points that will be scored
+                    play_weights[card] += candidate_pair[0].points
+                    print(str(i) + ' of a kind', card, play_weights[card])
+                    # Weight for potential opponent counter
+                    print('probability of opponent', card.num_rank, ' ', opponent_card_probability(card))
+                    play_weights[card] -= (i ** 2 - i) * opponent_card_probability(card)
+                    print(str(i) + ' of a kind counter', card, play_weights[card])
+                    break
+            # If we have a pair, playing one of those is a good way to get set up for a pair royal
+            # The only exception is if the count is too high for us to make a pair royal, or a 5 as the first card
+            if sum(other_card.num_rank == card.num_rank for other_card in playable_cards) > 1 and \
+                    card.value * 3 + pegging_count <= 31 and not (card.num_rank == 5 and len(round_cards) == 0):
+                play_weights[card] += 6 * opponent_card_probability(card)
+                print('pair royal potential', card, play_weights[card])
+            # TODO check run potential by adding a point of weight for every card within 1 and half a point for every
+            #  card within 2
+
+            # Leading a low card is generally a good idea
+            if len(round_cards) == 0 and card.num_rank < 5:
+                play_weights[card] += 1
+                print('low leading card', card, play_weights[card])
+        return sorted(play_weights, key=play_weights.get, reverse=True)
 
     # Analyze a hand of 6 cards and determine the mathematically optimal discards
     def get_best_discards(self, dealer):

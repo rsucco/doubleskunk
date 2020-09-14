@@ -1,4 +1,4 @@
-from src.doubleskunk.card import Card
+from card import Card
 from typing import Dict, List
 import random
 
