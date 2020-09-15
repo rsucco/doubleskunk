@@ -107,15 +107,11 @@ class Hand:
     def count_flush(self):
         flush = []
         flush_suit = self.cards[0].suit
-        # If any card is a different suit than the first one, there can't be a flush
-        for card in self.cards:
-            if card.suit != flush_suit:
-                return flush
         # Five card flush if the upcard also matches
-        if self.upcard.suit == flush_suit:
+        if all(card.suit == flush_suit for card in self.all_cards()):
             flush = [Score(self.all_cards(), 5)]
-        # Four card flushes can't be scored in a crib
-        if not self.is_crib:
+        # Four card flushes can't include the upcard and can't be scored in a crib
+        elif all(card.suit == flush_suit for card in self.cards) and not self.is_crib:
             flush = [Score(self.cards, 4)]
         return flush
 

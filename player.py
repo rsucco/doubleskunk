@@ -50,8 +50,8 @@ class HumanPlayer(Player):
                 if 4 <= cut <= 36:
                     return cut
                 else:
-                    raise Exception
-            except Exception:
+                    raise ValueError
+            except ValueError:
                 return random.randint(4, 36)
 
     # Get card input from player
@@ -78,9 +78,9 @@ class HumanPlayer(Player):
                 return int(rank)
 
         # If a char is a valid suit, return it. Otherwise, return the default suit value of '0'
-        def get_suit(suit):
-            if suit in SUIT_CHARS:
-                return suit
+        def get_suit(check_suit):
+            if check_suit in SUIT_CHARS:
+                return check_suit
             else:
                 return '0'
 
@@ -94,7 +94,7 @@ class HumanPlayer(Player):
         # Getting just one card requires special handling
         if num_cards == 1:
             suit = get_suit(discard_input[-1])
-            return (num_rank, suit)
+            return num_rank, suit
 
         # The character after the rank is always the suit
         # Either the suit was specified, or its the next card's rank, which returns the default '0'
@@ -173,11 +173,13 @@ class HumanPlayer(Player):
                 while True:
                     try:
                         discard_input = self.get_card_input(1)
-                        if discard_input[0] in [card.num_rank for card in available_cards.cards] and Card(discard_input[0]).value + pegging_count <= 31:
+                        # Make sure the card they entered exists in our hand and is a legal play
+                        if discard_input[0] in [card.num_rank for card in available_cards.cards] and \
+                                Card(discard_input[0]).value + pegging_count <= 31:
                             return discard_input[0]
                         else:
-                            raise Exception
-                    except Exception:
+                            raise ValueError
+                    except (ValueError, IndexError):
                         traceback.print_exc()
                         set_message(Style.BRIGHT + 'Invalid input. Your turn.' + Style.RESET_ALL +
                                     ' Enter a card to play and press enter.')
@@ -253,8 +255,17 @@ class AIPlayer(Player):
         # Assign a weight to each playable card based on various factors if more than one is playable
         else:
             play_weights = self.get_pegging_weights(playable_cards, played_cards, remaining_cards, pegging_count)
-            print('sorted weights', ', '.join(str(item) for item in play_weights))
-            return play_weights[0].num_rank
+            # Make the best play on hard difficulty
+            if self.difficulty == 3:
+                return_index = 0
+            # Make a decent play on medium difficulty
+            elif self.difficulty == 2:
+                # This is safe because we never have list of play weights with a length less than 2
+                return_index = random.randint(0, 1)
+            # Play whatever feels groovy on easy difficulty
+            else:
+                return_index = random.randrange(0, len(play_weights))
+            return play_weights[return_index].num_rank
 
     @staticmethod
     def get_pegging_weights(playable_cards, played_cards, remaining_cards, pegging_count):
@@ -285,19 +296,30 @@ class AIPlayer(Player):
         # provide marginally better results, but is very computationally expensive to do in Python
         # Also, the heuristic approach is arguably a lot more fun to write and easier to follow
         for card in playable_cards:
+            other_playable_cards = [other_card for other_card in playable_cards if other_card is not card]
             new_count = pegging_count + card.value
             new_cards = copy.copy(round_cards)
             new_cards.append(card)
             # Avoid counts of 5 or 21 to not give away free points
-            if pegging_count + card.value in {5, 21}:
+            if new_count in {5, 21}:
                 # Calculate likelihood of opponent having a 10 card and multiply it by 2 to determine average negative
                 play_weights[card] -= 2 * opponent_card_probability(Card(10), True)
                 print('5 or 21', card, play_weights[card])
+            # Set up 15s and 31s if able
+            # This is determined by checking if the value of the current count plus the value of the card plus the
+            # value of another card in the deck is equal to 15 or 31
+            if any(new_count + other_card.value in {15, 31} for other_card in other_playable_cards):
+                # 2 points for 15 or 31, multiplied by the probability of the opponent playing a 10
+                play_weights[card] += 2 * opponent_card_probability(Card(10), True)
+                print('set up for 15 or 31', card, play_weights[card])
             # Take counts of 15 or 31 if offered
-            elif pegging_count + card.value in {15, 31}:
+            elif new_count in {15, 31}:
                 play_weights[card] += 2
                 print('15 or 31', card, play_weights[card])
+            # TODO check run potential by adding a point of weight for every card within 1 and half a point for
+            #  every card within 2
             # Weight for a pair, pair royal, or pair double royal if offered
+            pair = False
             for i in range(min(len(new_cards), 4), 1, -1):
                 # Check the last i cards for an i-sized pair, starting with 4 (if possible) and going down to 2
                 candidate_pair = Hand(new_cards[-i:]).count_pairs(i)
@@ -305,24 +327,32 @@ class AIPlayer(Player):
                     # Weight for the number of points that will be scored
                     play_weights[card] += candidate_pair[0].points
                     print(str(i) + ' of a kind', card, play_weights[card])
-                    # Weight for potential opponent counter
-                    print('probability of opponent', card.num_rank, ' ', opponent_card_probability(card))
-                    play_weights[card] -= (i ** 2 - i) * opponent_card_probability(card)
-                    print(str(i) + ' of a kind counter', card, play_weights[card])
+                    # Weight for potential opponent counter, which can't happen to a 4 of a kind
+                    if i != 4:
+                        print('probability of opponent', card.num_rank, ' ', opponent_card_probability(card))
+                        play_weights[card] -= ((i + 1) ** 2 - (i + 1)) * opponent_card_probability(card)
+                        print(str(i + 1) + ' of a kind counter', card, play_weights[card])
+                    pair = True
                     break
-            # If we have a pair, playing one of those is a good way to get set up for a pair royal
-            # The only exception is if the count is too high for us to make a pair royal, or a 5 as the first card
-            if sum(other_card.num_rank == card.num_rank for other_card in playable_cards) > 1 and \
-                    card.value * 3 + pegging_count <= 31 and not (card.num_rank == 5 and len(round_cards) == 0):
-                play_weights[card] += 6 * opponent_card_probability(card)
-                print('pair royal potential', card, play_weights[card])
-            # TODO check run potential by adding a point of weight for every card within 1 and half a point for every
-            #  card within 2
-
+            # If there's no pair, take potential pairs into consideration
+            if not pair:
+                # If we have a pair, playing one of those is a good way to get set up for a pair royal
+                # The only exception is if the count is too high for us to make a pair royal, or a 5 as the first card
+                if sum(other_card.num_rank == card.num_rank for other_card in playable_cards) > 1 and \
+                        card.value * 3 + pegging_count <= 31 and not (card.num_rank == 5 and len(round_cards) == 0):
+                    play_weights[card] += 6 * opponent_card_probability(card)
+                    print('pair royal potential', card, play_weights[card])
+                # Account for opponent pair potential
+                play_weights[card] -= 2 * opponent_card_probability(card)
+                print('opponent pair potential', card, play_weights[card])
             # Leading a low card is generally a good idea
             if len(round_cards) == 0 and card.num_rank < 5:
                 play_weights[card] += 1
                 print('low leading card', card, play_weights[card])
+        print('play weights:')
+        for weight in play_weights.items():
+            print(str(weight[0]))
+            print(weight[1])
         return sorted(play_weights, key=play_weights.get, reverse=True)
 
     # Analyze a hand of 6 cards and determine the mathematically optimal discards

@@ -11,11 +11,11 @@ def jump_to_test():
     game = Game(1, 3, True)
     game.dealer = 0
     game.pone = 1
-    cards = [Card(2, 'c'),
-             Card(3, 'h'),
+    cards = [Card(2, 's'),
+             Card(3, 's'),
              Card(5, 's'),
-             Card(7, 'h'),
-             Card(8, 'd'),
+             Card(7, 's'),
+             Card(8, 's'),
              Card(6, 'd')]
     game.players[0].hand = Hand(cards)
     cards = [Card(4, 'c'),
@@ -32,7 +32,8 @@ def jump_to_test():
     # game.crib = Hand(cards)
     game.get_discards()
     game.get_upcard()
-    game.pegging()
+    game.show_hands()
+    #game.pegging()
     exit()
 
 
