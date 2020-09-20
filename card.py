@@ -43,11 +43,13 @@ class Card:
         elif self.suit == 'd':
             card_str = str(
                 f'{Fore.BLUE}{self.rank}♦{Style.RESET_ALL}')
+        else:
+            card_str = str(self.rank)
         return card_str
 
     # Equality is determined by rank and suit
     def __eq__(self, other):
-        return self.rank == other.rank and self.suit == other.suit
+        return (self.rank == other.rank and self.suit == other.suit) or (self.rank == other.rank and self.suit == '0')
 
     # Less than is determined by rank
     def __lt__(self, other):
