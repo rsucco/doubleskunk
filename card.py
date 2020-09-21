@@ -2,10 +2,10 @@ from colorama import Fore, Back, Style
 
 
 class Card:
-    SPADES = str(f'{Fore.LIGHTYELLOW_EX}[s]pades ♠{Style.RESET_ALL}')
-    HEARTS = str(f'{Fore.RED}[h]earts ♥{Style.RESET_ALL}')
-    CLUBS = str(f'{Fore.GREEN}[c]lubs ♣{Style.RESET_ALL}')
-    DIAMONDS = str(f'{Fore.BLUE}[d]iamonds ♦{Style.RESET_ALL}')
+    SPADES = Fore.LIGHTYELLOW_EX + '[s]pades ♠' + Style.RESET_ALL
+    HEARTS = Fore.RED + '[h]earts ♥' + Style.RESET_ALL
+    CLUBS = Fore.GREEN + '[c]lubs ♣' + Style.RESET_ALL
+    DIAMONDS = Style.BRIGHT + Fore.BLUE + '[d]iamonds ♦' + Style.RESET_ALL
 
     def __init__(self, num_rank=0, suit='0'):
         self.num_rank = num_rank
@@ -32,17 +32,13 @@ class Card:
         # Spades yellow, hearts red, clubs green, diamonds blue
         card_str = ''
         if self.suit == 's':
-            card_str = str(
-                f'{Fore.LIGHTYELLOW_EX}{self.rank}♠{Style.RESET_ALL}')
+            card_str = Fore.LIGHTYELLOW_EX + self.rank + '♠' + Style.RESET_ALL
         elif self.suit == 'h':
-            card_str = str(
-                f'{Fore.RED}{self.rank}♥{Style.RESET_ALL}')
+            card_str = Fore.RED + self.rank + '♥' + Style.RESET_ALL
         elif self.suit == 'c':
-            card_str = str(
-                f'{Fore.GREEN}{self.rank}♣{Style.RESET_ALL}')
+            card_str = Fore.GREEN + self.rank + '♣' + Style.RESET_ALL
         elif self.suit == 'd':
-            card_str = str(
-                f'{Fore.BLUE}{self.rank}♦{Style.RESET_ALL}')
+            card_str = Style.BRIGHT + Fore.BLUE + self.rank + '♦' + Style.RESET_ALL
         else:
             card_str = str(self.rank)
         return card_str

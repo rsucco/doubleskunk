@@ -276,7 +276,7 @@ class Game:
         # Row 2
         print(self.render_board_top(61))
         for score_str in self.render_board_score(61):
-            print(f'{score_str}')
+            print(score_str)
         print(self.render_board_bottom(61))
         print(Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' ' * 9 +
               '120                     110                     100                     90                      80     '

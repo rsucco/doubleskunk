@@ -242,7 +242,7 @@ class AIPlayer(Player):
 
     def get_peg_play(self, set_message, available_cards, pegging_count, opponent_go, played_cards):
         # Get remaining cards in the deck. All cards played or seen so far are excluded
-        excluded_cards = list(chain(*played_cards, self.known_cards, self.hand.cards, [self.hand.upcard]))
+        excluded_cards = list(chain(list(chain(*played_cards)), self.known_cards, self.hand.cards, [self.hand.upcard]))
         deck = Deck()
         remaining_cards = {i: 0 for i in range(1, 14)}
         # Suit doesn't matter, so convert the list of cards to a frequency distribution for easier processing
@@ -349,7 +349,7 @@ class AIPlayer(Player):
                     if i != 4 and new_count + card.value <= 31:
                         print('probability of opponent', card.rank, ' ', opponent_card_probability(card))
                         play_weights[card] -= ((i + 1) ** 2 - (i + 1)) * opponent_card_probability(card)
-                        print(str(i + 1) + ' of a kind counter', play_weights[card])
+                        print(str(i + 1) + ' of a kind opponent counter', play_weights[card])
                     pair = True
                     break
             # If there's no pair, take potential pairs into consideration
