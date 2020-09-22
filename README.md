@@ -25,7 +25,7 @@ name below. Run these commands in an Administrator PowerShell terminal.
     C:\Python38\Scripts\pip3.exe install colorama pyfiglet typing
 
 #### Play:
-##### Arch Linux/Ubuntu/macOS
+##### Linux/macOS
 
     chmod +x ./doubleskunk.py
     ./doubleskunk.py
