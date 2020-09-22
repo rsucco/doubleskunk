@@ -2,15 +2,8 @@
 
 Terminal-based cribbage game
 
-### Instructions:
-
-The basic game is playable against an AI player, but is very much in a pre-release phase.  
-
 #### Setup:
-I plan to test and build this for Arch Linux, Ubuntu, macOS, and Windows 10 eventually, but for now I'm only testing it
-on Arch Linux, Ubuntu, and macOS. You should also be able to install the relevant dependencies with your own distribution's
-package manager and get it to run on any distribution of Linux that supports Python 3.4 or higher. It may work on Windows, but no
-guarantees at this point.
+Note: Other Linux distributions besides Arch and Ubuntu should work fine. Just replace the commands below with the correct equivalents from your distro's package manager. The minimum supported and tested version of Python is 3.4.
 
 ##### Arch Linux:
     sudo pacman -S python python-pip
@@ -25,7 +18,7 @@ Note: If you don't have [Homebrew](https://brew.sh/) installed already, you'll h
     sudo -H pip3 install colorama pyfiglet typing
 ##### Windows 10:
 Note: If you don't have [Chocolatey](https://chocolatey.org/) installed already, you'll have to install it first.
-Python 3 is required, but if you're using a different version than 3.8, replace 'Python38' with the correct directory
+Python 3.4+ is required, but if you're using a different version than 3.8, replace 'Python38' with the correct directory
 name below. Run these commands in an Administrator PowerShell terminal.
 
     choco install python pip
@@ -34,7 +27,7 @@ name below. Run these commands in an Administrator PowerShell terminal.
 #### Play:
 ##### Arch Linux/Ubuntu/macOS
 
-    chmod +x .doubleskunk.py
+    chmod +x ./doubleskunk.py
     ./doubleskunk.py
 
 ##### Windows 10
