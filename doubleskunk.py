@@ -2,7 +2,22 @@
 import sys
 import argparse
 from game import Game
+from pyfiglet import Figlet
+from colorama import Style, Back, Fore
+from os import name, system
 
+
+def print_welcome():
+    if name == 'nt':
+        system('cls')
+    else:
+        system('clear')
+    f = Figlet(font='slant', width=80)
+    print(Style.BRIGHT + Fore.LIGHTRED_EX + '\n' + '-' * 80 + '\n' + Style.RESET_ALL)
+    print(f'{Style.BRIGHT}{Fore.GREEN}{f.renderText("   DOUBLE")}{Style.RESET_ALL}')
+    print(f'{Style.BRIGHT}{Fore.LIGHTRED_EX}{f.renderText("                 SKUNK")}{Style.RESET_ALL}')
+    print(Style.BRIGHT + Fore.LIGHTGREEN_EX + '\n' + '-' * 80 + '\n' + Style.RESET_ALL)
+    print(Style.BRIGHT + 'Please maximize your terminal window for the best experience.\n' + Style.RESET_ALL)
 
 # noinspection PyBroadException
 def main():
@@ -17,6 +32,9 @@ def main():
     parser.add_argument('--test', action='store_true',
                         help='Jump straight to current test')
     args = parser.parse_args(sys.argv[1:])
+
+    print_welcome()
+
     # Set number of players
     try:
         # Check if the user passed a valid number of players via command line, and use it if so

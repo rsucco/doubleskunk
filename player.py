@@ -214,6 +214,10 @@ class AIPlayer(Player):
     def cut_deck(*args):
         return random.randint(4, 36)
 
+    def print_message(self, *message):
+        if self.verbose:
+            print(*message)
+
     # Selects and returns a list of the discards and removes them from its Hand object
     def select_discards(self, set_message, dealer, opponent_score):
         # Get best discards, sorted by highest expected net points
@@ -252,9 +256,9 @@ class AIPlayer(Player):
         # A card is considered playable if its counting value plus the current count doesn't exceed 31
         playable_cards = [card for card in available_cards.cards if card.value + pegging_count <= 31]
         opponent_hand_size = 8 - len(list(chain(*played_cards))) - len(available_cards.cards)
-        print('playable', ' '.join(str(card) for card in playable_cards))
-        print('played so far this round', ' '.join(str(card) for card in played_cards[-1]), '\n--------\n')
-        print('remaining', remaining_cards)
+        self.print_message('playable', ' '.join(str(card) for card in playable_cards))
+        self.print_message('played so far this round', ' '.join(str(card) for card in played_cards[-1]), '\n--------\n')
+        self.print_message('remaining', remaining_cards)
         # If no cards are playable, return -1 for a go
         if len(playable_cards) == 0:
             return -1
@@ -277,11 +281,10 @@ class AIPlayer(Player):
                 return_index = random.randrange(0, len(play_weights))
             return play_weights[return_index].num_rank
 
-    @staticmethod
-    def get_pegging_weights(playable_cards, played_cards, remaining_cards, pegging_count, opponent_hand_size):
+    def get_pegging_weights(self, playable_cards, played_cards, remaining_cards, pegging_count, opponent_hand_size):
         # Get the cards played so far this round
         round_cards = played_cards[-1]
-        print('opponent hand size', opponent_hand_size, '\n')
+        self.print_message('opponent hand size', opponent_hand_size, '\n')
 
         # Calculate probability that opponent has a particular card
         def opponent_card_probability(card, by_value=False):
@@ -304,23 +307,23 @@ class AIPlayer(Player):
         # provide marginally better results, but is very computationally expensive to do in Python
         # Also, the heuristic approach is arguably a lot more fun to write and easier to follow
         for card in playable_cards:
-            print('analyzing', card)
+            self.print_message('analyzing', card)
             other_playable_cards = [other_card for other_card in playable_cards if other_card is not card]
             new_count = pegging_count + card.value
             new_cards = copy.copy(round_cards)
             new_cards.append(card)
-            print('new count', new_count)
-            print('new cards', ' '.join(str(other_card) for other_card in new_cards), '\n')
+            self.print_message('new count', new_count)
+            self.print_message('new cards', ' '.join(str(other_card) for other_card in new_cards), '\n')
 
             # Calculate opponent 15 or 31 probability, if applicable
-            print('analyzing 15s and 31s')
+            self.print_message('analyzing 15s and 31s')
             if new_count in range(5, 15) or new_count in range(21, 31):
                 if new_count < 15:
                     needed_value = 15 - new_count
                 else:
                     needed_value = 31 - new_count
                 play_weights[card] -= 2 * opponent_card_probability(Card(needed_value), True)
-                print('opponent 15 or 31 potential with', needed_value, play_weights[card])
+                self.print_message('opponent 15 or 31 potential with', needed_value, play_weights[card])
 
             # Set up 15's and 31's if able
             # This is determined by checking if the value of the current count plus the value of the card plus the
@@ -328,15 +331,15 @@ class AIPlayer(Player):
             if any(new_count + other_card.value + 10 in {15, 31} for other_card in other_playable_cards):
                 # 2 points for 15 or 31, multiplied by the probability of the opponent playing a 10
                 play_weights[card] += 2 * opponent_card_probability(Card(10), True)
-                print('probability of opponent 10 card', opponent_card_probability(Card(10), True))
-                print('set up for 15 or 31', play_weights[card])
+                self.print_message('probability of opponent 10 card', opponent_card_probability(Card(10), True))
+                self.print_message('set up for 15 or 31', play_weights[card])
             # Take counts of 15 or 31 if offered
             elif new_count in {15, 31}:
                 play_weights[card] += 2
-                print('15 or 31', play_weights[card])
+                self.print_message('15 or 31', play_weights[card])
 
             # Weight for a pair, pair royal, or pair double royal if offered
-            print('\nanalyzing pairs')
+            self.print_message('\nanalyzing pairs')
             pair = False
             for i in range(min(len(new_cards), 4), 1, -1):
                 # Check the last i cards for an i-sized pair, starting with 4 (if possible) and going down to 2
@@ -344,12 +347,12 @@ class AIPlayer(Player):
                 if len(candidate_pair) > 0:
                     # Weight for the number of points that will be scored
                     play_weights[card] += candidate_pair[0].points
-                    print(str(i) + ' of a kind', play_weights[card])
+                    self.print_message(str(i) + ' of a kind', play_weights[card])
                     # Weight for potential opponent counter (if there's room), which can't happen to a 4 of a kind
                     if i != 4 and new_count + card.value <= 31:
-                        print('probability of opponent', card.rank, ' ', opponent_card_probability(card))
+                        self.print_message('probability of opponent', card.rank, ' ', opponent_card_probability(card))
                         play_weights[card] -= ((i + 1) ** 2 - (i + 1)) * opponent_card_probability(card)
-                        print(str(i + 1) + ' of a kind opponent counter', play_weights[card])
+                        self.print_message(str(i + 1) + ' of a kind opponent counter', play_weights[card])
                     pair = True
                     break
             # If there's no pair, take potential pairs into consideration
@@ -357,7 +360,7 @@ class AIPlayer(Player):
                 # Account for opponent pair potential, but only if they have room to score a pair
                 if new_count + card.value <= 31:
                     play_weights[card] -= 2 * opponent_card_probability(card)
-                    print('opponent pair potential with', card.rank, play_weights[card])
+                    self.print_message('opponent pair potential with', card.rank, play_weights[card])
                 # If we have a pair in hand, playing one of those is a good way to get set up for a pair royal
                 # The only exception is if the count is too high for us to make a pair royal
                 if sum(other_card.num_rank == card.num_rank for other_card in playable_cards) > 1 and \
@@ -366,10 +369,10 @@ class AIPlayer(Player):
                     # Note: I believe weighting for a potential opponent pair double royal is unnecessary
                     # It's incredibly unlikely and a pair royal is always the right decision to take in pegging,
                     # so I'm not worried about it compromising the integrity of the weighting
-                    print('pair royal potential', play_weights[card])
+                    self.print_message('pair royal potential', play_weights[card])
 
             # Weight for a run
-            print('\nanalyzing runs')
+            self.print_message('\nanalyzing runs')
             if len(new_cards) >= 3:
                 for i in range(len(new_cards), 2, -1):
                     candidate_run = Hand(
@@ -377,7 +380,7 @@ class AIPlayer(Player):
                     # Check if a run was found and that its score matches what we're looking for
                     if len(candidate_run) > 0 and candidate_run[0].points == i:
                         play_weights[card] += i
-                        print(i, 'card run', play_weights[card])
+                        self.print_message(i, 'card run', play_weights[card])
                         break
 
             # Weight for potential opponent run
@@ -395,7 +398,7 @@ class AIPlayer(Player):
                         # Check if the given opponent play would result in a run and that it's the right size
                         if len(candidate_run) > 0 and candidate_run[0].points == len(hypothetical_cards):
                             play_weights[card] -= candidate_run[0].points * opponent_card_probability(remaining_card)
-                            print('opponent', i, 'card run potential with', remaining_card, play_weights[card])
+                            self.print_message('opponent', i, 'card run potential with', remaining_card, play_weights[card])
                             # If we can counter the potential run, we'll either get 1 or 0 net points
                             for other_card in other_playable_cards:
                                 if other_card.value + remaining_card.value + new_count <= 31:
@@ -406,17 +409,17 @@ class AIPlayer(Player):
                                         counter_run = Hand(counter_cards[-j:]).count_runs()
                                         if any(run.points == j for run in counter_run):
                                             play_weights[card] += j * opponent_card_probability(remaining_card)
-                                            print(j, 'card counter run', play_weights[card])
+                                            self.print_message(j, 'card counter run', play_weights[card])
                                             found_counter = True
                                             break
                                     if found_counter:
                                         break
 
             # Weight for opponent and self go potential
-            print('\nanalyzing gos')
+            self.print_message('\nanalyzing gos')
             # Get the value of the smallest card in our hand
             smallest_card_value = min(other_card.value for other_card in other_playable_cards)
-            print('smallest card in hand', smallest_card_value)
+            self.print_message('smallest card in hand', smallest_card_value)
             # Get the value of the smallest card the opponent could play to force a go from us
             # If we'd be able to play our smallest card if the opponent said go, then the smallest card that the
             # opponent can play to force a go from us is any card such that the total count of the opponent play and
@@ -427,60 +430,60 @@ class AIPlayer(Player):
             else:
                 smallest_opponent_go_card = 1
             if smallest_opponent_go_card in range(1, 11) and smallest_opponent_go_card + new_count < 31:
-                print('smallest card for opponent go', smallest_opponent_go_card)
+                self.print_message('smallest card for opponent go', smallest_opponent_go_card)
                 num_go_cards = 0
-                print('opponent go cards ', end='')
+                self.print_message('opponent go cards ')
                 for num_rank, num_remaining in remaining_cards.items():
                     opponent_card = Card(num_rank)
                     if opponent_card.value >= smallest_opponent_go_card and opponent_card.value + new_count < 31:
-                        print(opponent_card, end=' ')
+                        self.print_message(opponent_card)
                         num_go_cards += num_remaining
-                print('')
-                print('number of remaining cards', sum(remaining_cards.values()))
-                print('number of go cards', num_go_cards)
+                self.print_message('')
+                self.print_message('number of remaining cards', sum(remaining_cards.values()))
+                self.print_message('number of go cards', num_go_cards)
                 if num_go_cards > 1:
                     opponent_go_probability = (1 - num_go_cards / sum(remaining_cards.values())) ** opponent_hand_size
-                    print('odds of opponent having a go card', opponent_go_probability)
+                    self.print_message('odds of opponent having a go card', opponent_go_probability)
                     play_weights[card] -= opponent_go_probability
-                    print('opponent go potential with', smallest_opponent_go_card, '-', 30 - new_count, play_weights[card])
+                    self.print_message('opponent go potential with', smallest_opponent_go_card, '-', 30 - new_count, play_weights[card])
             # If the new count is greater than 21, weight for the odds that the opponent can't make a play
             if new_count > 21 and new_count != 31:
                 # Get the value of the largest playable card that the opponent could have
                 largest_opponent_playable_card = 31 - new_count
                 num_playable_cards = 0
-                print('opponent playable cards ', end='')
+                self.print_message('opponent playable cards ')
                 for num_rank, num_remaining in remaining_cards.items():
                     opponent_card = Card(num_rank)
                     if opponent_card.value <= largest_opponent_playable_card:
-                        print(opponent_card, end=' ')
+                        self.print_message(opponent_card)
                         num_playable_cards += num_remaining
-                print('')
-                print('number of remaining cards', sum(remaining_cards.values()))
-                print('total playable cards', num_playable_cards)
+                self.print_message('')
+                self.print_message('number of remaining cards', sum(remaining_cards.values()))
+                self.print_message('total playable cards', num_playable_cards)
                 self_go_probability = 1 - (num_playable_cards / sum(remaining_cards.values()))
-                print('odds of opponent not having a playable card', self_go_probability)
+                self.print_message('odds of opponent not having a playable card', self_go_probability)
                 play_weights[card] += self_go_probability
-                print('self go potential', play_weights[card])
+                self.print_message('self go potential', play_weights[card])
                 # If the opponent giving us a go would result in a pair, weight accordingly
                 if any(other_card.num_rank == card.num_rank for other_card in other_playable_cards if
                        other_card.value + new_count <= 31):
                     play_weights[card] += 2 * self_go_probability
-                    print('pair potential if opponent says go', play_weights[card])
+                    self.print_message('pair potential if opponent says go', play_weights[card])
                 # If the opponent giving us a go would result in a 31, weight accordingly
                 if any(other_card.value + new_count == 31 for other_card in other_playable_cards):
                     play_weights[card] += 2 * self_go_probability
-                    print('31 potential if opponent says go', play_weights[card])
+                    self.print_message('31 potential if opponent says go', play_weights[card])
 
-            print('\n-----------\n')
+            self.print_message('\n-----------\n')
         # All else being equal, play the highest card
         if any(other_playable_card.num_rank == card.num_rank for other_playable_card in other_playable_cards):
             max_weight = max(play_weights.values())
             highest_card = max([high_card for high_card in play_weights.keys() if play_weights[high_card] == max_weight])
             play_weights[highest_card] += 0.01
-            print('high card tiebreaker adds 0.01 to', highest_card)
-        print('play weights:')
+            self.print_message('high card tiebreaker adds 0.01 to', highest_card)
+        self.print_message('play weights:')
         for weight in play_weights.items():
-            print(str(weight[0]), weight[1])
+            self.print_message(str(weight[0]), weight[1])
         return sorted(play_weights, key=play_weights.get, reverse=True)
 
     # Analyze a hand of 6 cards and determine the mathematically optimal discards

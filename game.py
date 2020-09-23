@@ -165,9 +165,9 @@ class Game:
             render_strs[2] += VERT + self.BOARD_SPACE * \
                 5 + VERT + self.BOARD_SPACE
             # Render the scores
-            for i in range(119, 59, -1):
+            for i in range(120, 60, -1):
                 # Left side
-                if i == 119:
+                if i == 120:
                     render_strs[0] += '║'
                     render_strs[1] += '╠'
                     render_strs[2] += '║'
@@ -175,7 +175,7 @@ class Game:
                 render_strs[1] += '══'
                 render_strs[2] += self.render_board_hole(i, self.players[1])
                 # Right side
-                if i == 60:
+                if i == 61:
                     render_strs[0] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
                     render_strs[1] += '═╣' + self.BOARD_SPACE + \
@@ -183,12 +183,12 @@ class Game:
                     render_strs[2] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
                 # Skunk line
-                elif i == 90:
+                elif i == 91:
                     render_strs[0] += ' ' + VERT
                     render_strs[1] += '═S'
                     render_strs[2] += ' ' + VERT
                 # Vertical separators
-                elif i % 5 == 0:
+                elif (i - 1) % 5 == 0:
                     render_strs[0] += ' ' + VERT
                     render_strs[1] += '═╬'
                     render_strs[2] += ' ' + VERT
