@@ -7,8 +7,7 @@ Note: Other Linux distributions besides Arch and Ubuntu should work fine. Just r
 correct equivalents from your distro's package manager. The minimum supported and tested version of Python is 3.6.
 
 ##### Arch Linux:
-    sudo pacman -S python python-pip
-    sudo pip install colorama pyfiglet typing
+    sudo pacman -S python python-colorama python-pyfiglet
 ##### Ubuntu:
     sudo apt update && sudo apt install python3 python3-pip -y
     sudo pip3 install colorama pyfiglet typing
