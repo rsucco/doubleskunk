@@ -3,7 +3,7 @@ import sys
 import argparse
 from game import Game
 from pyfiglet import Figlet
-from colorama import Style, Back, Fore
+from colorama import Style, Fore
 from os import name, system
 
 
@@ -18,6 +18,7 @@ def print_welcome():
     print(f'{Style.BRIGHT}{Fore.LIGHTRED_EX}{f.renderText("                 SKUNK")}{Style.RESET_ALL}')
     print(Style.BRIGHT + Fore.LIGHTGREEN_EX + '\n' + '-' * 80 + '\n' + Style.RESET_ALL)
     print(Style.BRIGHT + 'Please maximize your terminal window for the best experience.\n' + Style.RESET_ALL)
+
 
 # noinspection PyBroadException
 def main():

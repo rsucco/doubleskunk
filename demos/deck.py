@@ -27,8 +27,6 @@ class Deck:
 
     # Deal two 6-card hands properly
     def deal_hands(self):
-        hands = {}
-        hands['dealer'] = self.cards[:12:2]
-        hands['pone'] = self.cards[1:13:2]
+        hands = {'dealer': self.cards[:12:2], 'pone': self.cards[1:13:2]}
         self.cards = self.cards[12:]
         return hands
