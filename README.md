@@ -11,6 +11,12 @@ correct equivalents from your distro's package manager. The minimum supported an
 ##### Ubuntu:
     sudo apt update && sudo apt install python3 python3-pip -y
     sudo pip3 install colorama pyfiglet typing
+##### Gentoo:
+    sudo emerge dev-lang/python dev-python/pip
+    sudo pip3 install --user colorama pyfiglet typing
+##### FreeBSD
+    sudo pkg install python3 py38-pip
+    pip install colorama pyfiglet typing
 ##### macOS:
 Note: If you don't have [Homebrew](https://brew.sh/) installed already, you'll have to install it first.
 
