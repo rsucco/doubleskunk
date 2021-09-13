@@ -14,7 +14,7 @@ correct equivalents from your distro's package manager. The minimum supported an
 ##### Gentoo:
     sudo emerge dev-lang/python dev-python/pip
     sudo pip3 install --user colorama pyfiglet typing
-##### FreeBSD
+##### FreeBSD:
     sudo pkg install python3 py38-pip
     pip install colorama pyfiglet typing
 ##### macOS:
