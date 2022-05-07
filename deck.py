@@ -20,8 +20,16 @@ class Deck:
     def shuffle(self):
         random.shuffle(self.cards)
 
-    # Deal two 6-card hands properly
-    def deal_hands(self) -> Dict[str, List[Card]]:
-        hands = {'dealer': self.cards[:12:2], 'pone': self.cards[1:13:2]}
-        self.cards = self.cards[12:]
+    # Deal two 6-card hands or three 5-card hands
+    def deal_hands(self, num_players):
+        if num_players == 2:
+            hands = [self.cards[:12:2], self.cards[1:13:2]]
+            self.cards = self.cards[12:]
+        elif num_players == 3:
+            hands = [self.cards[:13:3], self.cards[1:14:3], self.cards[2:15:3]]
+            self.cards = self.cards[15:]
         return hands
+
+    # Deal one card (for three-player cribs)
+    def deal_card(self):
+        return self.cards.pop(0)

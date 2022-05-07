@@ -6,6 +6,7 @@ from message import Message
 from colorama import Fore, Back, Style, init
 from os import system, name
 from typing import List
+from collections import deque
 import copy
 import itertools
 
@@ -14,23 +15,17 @@ import itertools
 class Game:
     BOARD_SPACE = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + ' '
 
-    def __init__(self, num_players=1, difficulty=3, debug=False):
+    def __init__(self, num_players=2, difficulty=3, debug=False):
         # Initialize colorama to enable styled terminal output on Windows
         init()
-        # 2-person games and 2-AI games are only for testing right now
+        # One AI for a 2-player game and two AIs for a 3-player game
         self.players = []
-        if num_players == 0:
+        self.players.append(HumanPlayer(self.player_victory, 0))
+        self.players.append(
+            AIPlayer(self.player_victory, 1, difficulty=difficulty, verbose=debug))
+        if num_players == 3:
             self.players.append(
-                AIPlayer(self.player_victory, 0, difficulty=difficulty, verbose=debug))
-            self.players.append(
-                AIPlayer(self.player_victory, 1, difficulty=difficulty, verbose=debug))
-        elif num_players == 1:
-            self.players.append(HumanPlayer(self.player_victory, 0))
-            self.players.append(
-                AIPlayer(self.player_victory, 1, difficulty=difficulty, verbose=debug))
-        elif num_players == 2:
-            self.players.append(HumanPlayer(self.player_victory, 0))
-            self.players.append(HumanPlayer(self.player_victory, 1))
+                AIPlayer(self.player_victory, 2, difficulty=difficulty, verbose=debug))
         self.difficulty = difficulty
         self.messages = [Message()]
         self.debug = debug
@@ -39,8 +34,8 @@ class Game:
         self.upcard = Card()
         self.pegging_cards = []
         self.pegging_count = -1
-        self.dealer = -1
-        self.pone = -1
+        # List representing the dealer and the player(s) next up
+        self.dealer = list(range(num_players))
 
     # Clear the screen with the appropriate terminal command for the system
     def clear(self):
@@ -87,20 +82,23 @@ class Game:
 
     # Render a hole with or without a peg for a given score number and player
     def render_board_hole(self, score, player=None):
-        # Hole 121 needs special handling since either player's peg can go there
+        # Hole 121 needs special handling since any player's peg can go there
         if score == 121:
-            if self.players[0].peg_at(121) or self.players[1].peg_at(121):
+            if any(player.peg_at(121) for player in self.players):
                 return Style.RESET_ALL + Style.DIM + \
                     Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.BLACK + ' ●'
             else:
                 return Style.RESET_ALL + Style.DIM + Back.LIGHTYELLOW_EX + Style.BRIGHT + Fore.BLACK + ' ○'
-        # Proper background colors for both players
+        # Proper background colors for all players
         if player == self.players[0]:
             render_str = Style.RESET_ALL + Style.DIM + \
                 Back.LIGHTRED_EX + Style.BRIGHT + Fore.BLACK
         elif player == self.players[1]:
             render_str = Style.RESET_ALL + Style.DIM + \
                 Back.LIGHTGREEN_EX + Style.BRIGHT + Fore.BLACK
+        elif player == self.players[2]:
+            render_str = Style.RESET_ALL + Style.DIM + \
+                Back.LIGHTBLUE_EX + Style.BRIGHT + Fore.BLACK
         else:
             render_str = Style.RESET_ALL + Style.DIM + Back.LIGHTYELLOW_EX
         # Different unicode characters for if a peg is in the hole or not
@@ -115,8 +113,13 @@ class Game:
         # Vertical separator character constant
         VERT = Style.BRIGHT + Back.LIGHTYELLOW_EX + Style.DIM + Fore.BLACK + '║'
         # Separate strings for each line of the score
-        render_strs = [self.BOARD_SPACE * 2,
-                       self.BOARD_SPACE * 2, self.BOARD_SPACE * 2]
+        if len(self.players) == 2:
+            render_strs = [self.BOARD_SPACE * 2,
+                           self.BOARD_SPACE * 2, self.BOARD_SPACE * 2]
+        else:
+            render_strs = [self.BOARD_SPACE * 2,
+                           self.BOARD_SPACE * 2, self.BOARD_SPACE * 2,
+                           self.BOARD_SPACE * 2, self.BOARD_SPACE * 2]
 
         # Render holes -1 through 60
         if starting_point == 1:
@@ -125,11 +128,19 @@ class Game:
             render_strs[1] += Style.BRIGHT + \
                 Back.LIGHTYELLOW_EX + Fore.BLACK + '╠═════╣ '
             render_strs[2] += VERT
+            if len(self.players) == 3:
+                render_strs[3] += Style.BRIGHT + \
+                    Back.LIGHTYELLOW_EX + Fore.BLACK + '╠═════╣ '
+                render_strs[4] += VERT
             for i in [-1, 0]:
                 render_strs[0] += self.render_board_hole(i, self.players[0])
                 render_strs[2] += self.render_board_hole(i, self.players[1])
+                if len(self.players) == 3:
+                    render_strs[4] += self.render_board_hole(i, self.players[2])
             render_strs[0] += ' ' + VERT + self.BOARD_SPACE
             render_strs[2] += ' ' + VERT + self.BOARD_SPACE
+            if len(self.players) == 3:
+                render_strs[4] += ' ' + VERT + self.BOARD_SPACE
             # Render the scores
             for i in range(1, 61):
                 # Left side
@@ -137,9 +148,15 @@ class Game:
                     render_strs[0] += '║'
                     render_strs[1] += '╠'
                     render_strs[2] += '║'
+                    if len(self.players) == 3:
+                        render_strs[3] += '╠'
+                        render_strs[4] += '║'
                 render_strs[0] += self.render_board_hole(i, self.players[0])
                 render_strs[1] += '══'
                 render_strs[2] += self.render_board_hole(i, self.players[1])
+                if len(self.players) == 3:
+                    render_strs[3] += '══'
+                    render_strs[4] += self.render_board_hole(i, self.players[2])
                 # Right side
                 if i == 60:
                     render_strs[0] += ' ' + VERT + self.BOARD_SPACE + \
@@ -148,22 +165,43 @@ class Game:
                         self.BOARD_SPACE + Style.RESET_ALL
                     render_strs[2] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
+                    if len(self.players) == 3:
+                        render_strs[3] += '═╣' + self.BOARD_SPACE + \
+                            self.BOARD_SPACE + Style.RESET_ALL
+                        render_strs[4] += ' ' + VERT + self.BOARD_SPACE + \
+                            self.BOARD_SPACE + Style.RESET_ALL
                 # Separators
                 elif i % 5 == 0:
                     render_strs[0] += ' ' + VERT
                     render_strs[1] += '═╬'
                     render_strs[2] += ' ' + VERT
+                    if len(self.players) == 3:
+                        render_strs[3] += '═╬'
+                        render_strs[4] += ' ' + VERT
 
         # Render holes 61-121
         else:
             # Render the finish line
-            render_strs[0] += VERT + self.BOARD_SPACE * \
-                5 + VERT + self.BOARD_SPACE
-            render_strs[1] += VERT + self.BOARD_SPACE + \
-                self.render_board_hole(
-                    121) + self.BOARD_SPACE * 2 + VERT + self.BOARD_SPACE
-            render_strs[2] += VERT + self.BOARD_SPACE * \
-                5 + VERT + self.BOARD_SPACE
+            if len(self.players) == 2:
+                render_strs[0] += VERT + self.BOARD_SPACE * \
+                    5 + VERT + self.BOARD_SPACE
+                render_strs[1] += VERT + self.BOARD_SPACE + \
+                    self.render_board_hole(
+                        121) + self.BOARD_SPACE * 2 + VERT + self.BOARD_SPACE
+                render_strs[2] += VERT + self.BOARD_SPACE * \
+                    5 + VERT + self.BOARD_SPACE
+            elif len(self.players) == 3:
+                render_strs[0] += VERT + self.BOARD_SPACE * \
+                    5 + VERT + self.BOARD_SPACE
+                render_strs[1] += VERT + self.BOARD_SPACE * \
+                    5 + VERT + self.BOARD_SPACE
+                render_strs[2] += VERT + self.BOARD_SPACE + \
+                    self.render_board_hole(
+                        121) + self.BOARD_SPACE * 2 + VERT + self.BOARD_SPACE
+                render_strs[3] += VERT + self.BOARD_SPACE * \
+                    5 + VERT + self.BOARD_SPACE
+                render_strs[4] += VERT + self.BOARD_SPACE * \
+                    5 + VERT + self.BOARD_SPACE
             # Render the scores
             for i in range(120, 60, -1):
                 # Left side
@@ -171,9 +209,15 @@ class Game:
                     render_strs[0] += '║'
                     render_strs[1] += '╠'
                     render_strs[2] += '║'
+                    if len(self.players) == 3:
+                        render_strs[3] += '╠'
+                        render_strs[4] += '║'
                 render_strs[0] += self.render_board_hole(i, self.players[0])
                 render_strs[1] += '══'
                 render_strs[2] += self.render_board_hole(i, self.players[1])
+                if len(self.players) == 3:
+                    render_strs[3] += '══'
+                    render_strs[4] += self.render_board_hole(i, self.players[2])
                 # Right side
                 if i == 61:
                     render_strs[0] += ' ' + VERT + self.BOARD_SPACE + \
@@ -182,16 +226,27 @@ class Game:
                         self.BOARD_SPACE + Style.RESET_ALL
                     render_strs[2] += ' ' + VERT + self.BOARD_SPACE + \
                         self.BOARD_SPACE + Style.RESET_ALL
+                    if len(self.players) == 3:
+                        render_strs[3] += '═╣' + self.BOARD_SPACE + \
+                        self.BOARD_SPACE + Style.RESET_ALL
+                        render_strs[4] += ' ' + VERT + self.BOARD_SPACE + \
+                        self.BOARD_SPACE + Style.RESET_ALL
                 # Skunk line
                 elif i == 91:
                     render_strs[0] += ' ' + VERT
                     render_strs[1] += '═S'
                     render_strs[2] += ' ' + VERT
+                    if len(self.players) == 3:
+                        render_strs[3] += '═S'
+                        render_strs[4] += ' ' + VERT
                 # Vertical separators
                 elif (i - 1) % 5 == 0:
                     render_strs[0] += ' ' + VERT
                     render_strs[1] += '═╬'
                     render_strs[2] += ' ' + VERT
+                    if len(self.players) == 3:
+                        render_strs[3] += '═╬'
+                        render_strs[4] += ' ' + VERT
         return render_strs
 
     @staticmethod
@@ -225,13 +280,15 @@ class Game:
     def render_ui_score(self, render_strs, player):
         if player == 0:
             player_start = Fore.RED
-        else:
+        elif player == 1:
             player_start = Fore.GREEN
+        else:
+            player_start = Fore.BLUE
         render_strs[0] += '     ╓──────────╖'
         render_strs[1] += '     ║ ' + player_start + 'P' + \
             str(player + 1) + ' Score' + Style.RESET_ALL + ' ║'
         render_strs[2] += '     ║   '
-        if player == self.dealer:
+        if player == self.dealer[0]:
             render_strs[2] += Back.LIGHTBLACK_EX + Style.BRIGHT
         render_strs[2] += str(self.players[player].score).center(5) + \
             Style.RESET_ALL + '  ║'
@@ -251,7 +308,10 @@ class Game:
         for i in range(2 - len(card_strs)):
             card_strs.append(Message(''))
         # The messages rendering already makes a nice box around it, so no need to reinvent the wheel here
-        card_strs = self.render_ui_messages(card_strs, 27, 27)
+        if len(self.players) == 2:
+            card_strs = self.render_ui_messages(card_strs, 27, 27)
+        else:
+            card_strs = self.render_ui_messages(card_strs, 40, 20)
         # Construct the pegging count
         count_strs = [Message(' Count:'), Message(
             '   ' + str(self.pegging_count))]
@@ -286,9 +346,13 @@ class Game:
     def draw_ui(self):
         print()
         render_strs = ['', '', '', '']
-        render_strs = self.render_ui_hand(render_strs, 0)
+        if len(self.players) == 2:
+            margin = 35
+        else:
+            margin = 25
+        render_strs = self.render_ui_hand(render_strs, 0, margin_left=margin)
         render_strs = self.render_ui_upcard(render_strs)
-        for i in range(2):
+        for i in range(len(self.players)):
             render_strs = self.render_ui_score(render_strs, i)
         for render_str in render_strs:
             print(render_str)
@@ -310,10 +374,15 @@ class Game:
             print('\n--------------\nDEBUG:')
             print('WHOLE DECK:')
             print(Hand(self.deck.cards))
-            print('OPPONENT HAND:')
+            print('PLAYER 2 HAND:')
             print(self.players[1].hand)
+            if len(self.players) == 3:
+                print('PLAYER 3 HAND:')
+                print(self.players[2].hand)
             print('CRIB:')
             print(self.crib)
+            print('DEALER:')
+            print(self.dealer)
 
     # Can be used directly or passed as a callback to player objects so they can write to the UI
     def set_message(self, *messages, **kwargs):
@@ -343,25 +412,50 @@ class Game:
             p1_cut = self.deck.cards[self.players[0].cut_deck(
                 self.set_message)]
             p2_cut = p1_cut
+            if len(self.players) == 3:
+                p3_cut = p2_cut
+            else:
+                # In a two-player game, make a fake cut of a king for player 3 so they never win the deal
+                p3_cut = Card(13)
             # Make sure they don't accidentally cut the exact same card
-            #  TODO Fix this to have player 2 cut the remainder of the deck after player 1's cut rather than cutting the entire deck twice
-            while p2_cut == p1_cut:
+            while p2_cut == p1_cut or p2_cut == p3_cut or p3_cut == p1_cut:
                 p2_cut = self.deck.cards[self.players[1].cut_deck(
                     self.set_message)]
+                if len(self.players) == 3:
+                    p3_cut = self.deck.cards[self.players[2].cut_deck(
+                        self.set_message)]
             cut_message = 'Player 1 cuts ' + \
                 str(p1_cut) + '. Player 2 cuts ' + str(p2_cut) + '.'
-            if p1_cut.num_rank < p2_cut.num_rank:
+            if len(self.players) == 3:
+                cut_message += ' Players 3 cuts ' + str(p3_cut) + '.'
+            
+            # The various return numbers are the number of characters to rotate the dealers list by
+            if p1_cut.num_rank < p2_cut.num_rank and p1_cut.num_rank < p3_cut.num_rank:
                 self.set_message(
                     cut_message, 'Player 1 wins the deal. Press enter to continue.')
                 input()
                 return 0
-            elif p2_cut.num_rank < p1_cut.num_rank:
+            elif p2_cut.num_rank < p1_cut.num_rank and p2_cut.num_rank < p3_cut.num_rank:
                 self.set_message(
                     cut_message, 'Player 2 wins the deal. Press enter to continue.')
+                input()
+                if len(self.players) == 2:
+                    return 1
+                else:
+                    return 2
+            elif p3_cut.num_rank < p1_cut.num_rank and p3_cut.num_rank < p2_cut.num_rank:
+                self.set_message(
+                    cut_message, 'Player 3 wins the deal. Press enter to continue.')
                 input()
                 return 1
             else:
                 self.set_message(cut_message + ' Cut is tied. Cut again.')
+
+    # Rotate the dealer to the next player
+    def switch_dealer(self, rotate_by=2):
+        deque_dealer = deque(self.dealer)
+        deque_dealer.rotate(rotate_by)
+        self.dealer = list(deque_dealer)
 
     # Shuffle the deck and deal
     def deal_hands(self):
@@ -369,44 +463,60 @@ class Game:
         self.deck.shuffle()
         self.crib = Hand()
         self.upcard = Card()
-        hands = self.deck.deal_hands()
-        self.players[self.dealer].hand = Hand(hands['dealer'])
-        self.players[self.pone].hand = Hand(hands['pone'])
+        hands = self.deck.deal_hands(len(self.players))
+        for i in range(len(self.players)):
+            self.players[self.dealer[i]].hand = Hand(hands[i])
 
     # Get discards from both players to the crib
     def get_discards(self):
-        self.crib = Hand(self.players[0].select_discards(
-            self.set_message, self.dealer == 0, self.players[1].score), is_crib=True)
-        self.crib.cards.extend(self.players[1].select_discards(
-            self.set_message, self.dealer == 1, self.players[0].score))
+        if len(self.players) == 2:
+            # Each player discards two cards to the crib in a two-player game
+            self.crib = Hand(self.players[0].select_discards(
+                self.set_message, self.dealer[0] == 0, self.players[1].score), is_crib=True)
+            self.crib.cards.extend(self.players[1].select_discards(
+                self.set_message, self.dealer[0] == 1, self.players[0].score))
+        else:
+            # Each player discards one card to the crib and one is dealt from the deck in a three-player game
+            self.crib = Hand(self.players[0].select_discards(
+                self.set_message, self.dealer[0] == 0, self.players[1].score, 1, "Player " + str(self.dealer[0] + 1)), is_crib=True)
+            self.crib.cards.extend(self.players[1].select_discards(
+                self.set_message, self.dealer[0] == 1, max(self.players[0].score, self.players[2].score)))
+            self.crib.cards.extend(self.players[2].select_discards(
+                self.set_message, self.dealer[0] == 2, max(self.players[0].score, self.players[1].score)))
+            self.crib.cards.extend([self.deck.deal_card()])
         self.draw_game()
 
     # Cut the deck to get the upcard
     def get_upcard(self):
         self.set_message('Cut the deck to determine shared cut card.')
         self.upcard = self.deck.cards.pop(
-            self.players[self.pone].cut_deck(self.set_message))
-        self.set_message('Player ' + str(self.pone + 1) + ' cuts ' +
+            self.players[self.dealer[1]].cut_deck(self.set_message))
+        self.set_message('Player ' + str(self.dealer[1] + 1) + ' cuts ' +
                          str(self.upcard) + '. Press enter to continue.')
         if self.upcard.rank == 'J':
-            self.players[self.dealer].add_points(2)
-            self.set_message('Player ' + str(self.dealer + 1) +
+            self.players[self.dealer[0]].add_points(2)
+            self.set_message('Player ' + str(self.dealer[0] + 1) +
                              ' scores 2 points for heels.', append_msg=True)
         input()
         self.players[0].hand.upcard = self.players[1].hand.upcard = self.crib.upcard = self.upcard
+        if len(self.players) == 3:
+            self.players[2].hand.upcard = self.upcard
         self.draw_game()
 
     # Do pegging phase until all cards are gone
     def pegging(self):
         # Copy the pegging hands so we can discard cards from them without affecting the actual hands before the count
         pegging_hands = [copy.copy(player.hand) for player in self.players]
-        player_up = self.pone
+        player_up = self.dealer[1]
         # Set variables so the UI will start rendering the pegging interface
         self.pegging_count = 0
         # List of lists of cards, can't use the Hand class because it sorts the cards in its __str__(), but we want to track sequential order
         self.pegging_cards = [[]]
-        # Track whether either player has said 'go' so far this round
-        go = [False, False]
+        # Track whether any player has said 'go' so far this round
+        if len(self.players) == 2:
+            go = [False, False]
+        else:
+            go = [False, False, False]
         # Update the rounds counter and add another list for the pegging UI
         rounds_played = 0
 
@@ -422,7 +532,12 @@ class Game:
             # If the player has said go, skip their turn
             else:
                 go[player_up] = True
-                player_up = 1 - player_up
+                if len(self.players) == 2:
+                    player_up = 1 - player_up
+                else:
+                    player_up += 1
+                    if player_up == 3:
+                        player_up = 0
                 continue
 
             # Player objects will return -1 for a go
@@ -506,11 +621,13 @@ class Game:
                                   ' scores 1 point for last card.')
                 # If the player played their last card and the opponent will have to say go, give them a go
                 elif len(pegging_hands[player_up].cards) == 0 and \
-                        not any([card.value + self.pegging_count <= 31 for card in pegging_hands[1 - player_up].cards]):
+                        not any([card.value + self.pegging_count <= 31 for card in pegging_hand.cards] for pegging_hand in pegging_hands):
                     score += 1
                     scores.append('Player ' + str(player_up + 1) +
-                                  ' scores 1 point for a go.')
+                                  ' scores 1 point for a go..')
                     go = [True, True]
+                    if len(self.players) == 3:
+                        go.append(True)
                 # Print scores for the play and add points if there were any
                 if len(scores) > 0:
                     self.players[player_up].add_points(score)
@@ -525,7 +642,12 @@ class Game:
                 # If a player has no cards, make sure their go status is True, otherwise reset
                 go = [len(hand.cards) == 0 for hand in pegging_hands]
             # Next player is up
-            player_up = 1 - player_up
+            if len(self.players) == 2:
+                    player_up = 1 - player_up
+            else:
+                player_up += 1
+                if player_up == 3:
+                    player_up = 0
         # Reset the pegging count UI state
         self.pegging_count = -1
         self.pegging_cards = []
@@ -589,7 +711,10 @@ class Game:
 
     # Show the counts of the hands and the crib
     def show_hands(self):
-        for i in [self.pone, self.dealer]:
+        count_order = deque(self.dealer)
+        count_order.rotate(len(self.players) - 1)
+        count_order = list(count_order)
+        for i in count_order:
             # Display the hand before counting it
             self.set_message('Player ' + str(i + 1) +
                              '\'s hand: ' + str(self.players[i].hand) + ' [' + str(self.upcard) + ']')
@@ -599,22 +724,22 @@ class Game:
             self.set_message('Press enter to continue.', append_msg=True)
             input()
         # Same as above, but for the crib
-        self.set_message('Player ' + str(self.dealer + 1) +
+        self.set_message('Player ' + str(self.dealer[0] + 1) +
                          '\'s crib: ' + str(self.crib) + ' [' + str(self.upcard) + ']')
-        self.players[self.dealer].add_points(self.count_hand(self.crib))
+        self.players[self.dealer[0]].add_points(self.count_hand(self.crib))
         self.set_message('Press enter to continue.', append_msg=True)
         input()
 
     # Callback method for player object to call as soon as it wins. This makes handling small frequent victory checks easier
     def player_victory(self, player_num):
         # Check for skunk (opponent scores fewer than 90 points), double skunk (fewer than 60), or triple skunk (30)
-        if self.players[1 - player_num].score < 30:
-            self.set_message('Player ' + str(player_num + 1) + ' utterly crushes player ' +
-                             str(1 - player_num + 1) + '\'s spirit with a TRIPLE SKUNK!!!!')
-        elif self.players[1 - player_num].score < 60:
+        if any(player.score < 30 for player in self.players):
+            self.set_message('Player ' + str(player_num + 1) +
+                             ' shatters the resolve of all challengers with a TRIPLE SKUNK!!!!')
+        elif any(player.score < 60 for player in self.players):
             self.set_message('Player ' + str(player_num + 1) +
                              ' pulls an absolute power move with a DOUBLE SKUNK!!!')
-        elif self.players[1 - player_num].score < 90:
+        elif any(player.score < 90 for player in self.players):
             self.set_message('Player ' + str(player_num + 1) +
                              ' asserts their dominance with a SKUNK!!')
         else:
@@ -625,15 +750,12 @@ class Game:
     # The high-level flow of the cribbage game happens here
     def play(self):
         # Cut the deck to determine who deals
-        self.dealer = self.get_dealer()
-        self.pone = 1 - self.dealer
+        self.switch_dealer(self.get_dealer())
         # Play until
-        while self.players[0].score < 121 and self.players[1].score < 121:
+        while all(player.score < 121 for player in self.players):
             self.deal_hands()
             self.get_discards()
             self.get_upcard()
             self.pegging()
             self.show_hands()
-            # Switch dealer and pone
-            self.dealer = self.pone
-            self.pone = 1 - self.dealer
+            self.switch_dealer()

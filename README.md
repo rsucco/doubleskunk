@@ -3,8 +3,9 @@
 Terminal-based cribbage game
 
 #### Setup:
-Note: Other Linux distributions besides Arch and Ubuntu should work fine. Just replace the commands below with the
-correct equivalents from your distro's package manager. The minimum supported and tested version of Python is 3.6.
+Note: Other Linux distributions besides the ones listed should work fine; these are just the ones I've tested. Just
+replace the commands below with the correct equivalents from your distro's package manager.
+The minimum supported and tested version of Python is 3.6.
 
 ##### Arch Linux:
     sudo pacman -S python python-colorama python-pyfiglet
@@ -45,6 +46,11 @@ You can use the `-p` flag to set 1 or 2 players and the `-d` flag to set difficu
 game with no flags and select your difficulty and number of players from the game's menus.
 
 #### Release Notes:
+##### 0.2.0 (07MAY2022):
+After a while of letting this sit (and pretty much giving up on adding network multiplayer), I decided to have a go at 
+adding three-player functionality, which went better than expected. There's probably a few bugs here and there still,
+but three-player games are playable now. The AI required surprisingly little adjustment to function in a 3-player game.
+
 ##### 0.1.1 (23SEP2020):
 I added Windows running instructions and some minor bug fixes and performance improvements. Going forward, the network
 multiplayer is going to be the main focus, and when that branch is stable and merged I'll call it 0.2. Until then, I'll

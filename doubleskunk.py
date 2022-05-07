@@ -26,7 +26,7 @@ def main():
     parser.add_argument('-d', '--difficulty', nargs='?', default=-1, type=int,
                         choices=range(1, 4), metavar='1-3', help='Set difficulty')
     parser.add_argument('-p', '--players', nargs='?', default=-1, type=int,
-                        choices=range(3), metavar='0-2', help='Set number of players')
+                        choices=range(2, 4), metavar='2-3', help='Set number of players')
     parser.add_argument('-D', '--debug', action='store_true',
                         help='Run in debug mode')
     parser.add_argument('--test', action='store_true',
@@ -38,18 +38,18 @@ def main():
     # Set number of players
     try:
         # Check if the user passed a valid number of players via command line, and use it if so
-        if args.players in range(3):
+        if args.players in range(2, 4):
             num_players = args.players
         else:
             num_players = input(
-                'Enter 1 or 2 for number of players (default 1):')
+                'Enter 2 or 3 for number of players (default 2):')
             num_players = int(num_players[0])
             # If the user gave invalid input or no input, use the default
-            if num_players not in range(3):
-                num_players = 1
+            if num_players not in range(2, 4):
+                num_players = 2
     # Either the user pressed enter for the default, or they can't even be trusted to type in an integer
     except Exception:
-        num_players = 1
+        num_players = 2
 
     # Set difficulty
     try:

@@ -43,17 +43,17 @@ class HumanPlayer(Player):
     @staticmethod
     def cut_deck(set_message):
         set_message(
-            'Enter number between 4 and 36 or press enter for random cut.', append_msg=True)
+            'Enter number between 4 and 32 or press enter for random cut.', append_msg=True)
         while True:
             try:
                 cut = input()
                 cut = int(cut)
-                if 4 <= cut <= 36:
+                if 4 <= cut <= 32:
                     return cut
                 else:
                     raise ValueError
             except ValueError:
-                return random.randint(4, 36)
+                return random.randint(4, 32)
 
     # Get card input from player
     @staticmethod
@@ -115,8 +115,12 @@ class HumanPlayer(Player):
 
     # Parse input to determine discard choices.
     # Returns a list of the discards and removes them from its Hand object
-    def select_discards(self, set_message, dealer, opponent_score):
+    def select_discards(self, set_message, dealer, opponent_score, num_cards=2, opponent='Opponent'):
         # Update UI
+        if num_cards == 2:
+            cards_text = 'two cards'
+        else:
+            cards_text = 'one card'
         base_messages = ['You can use the numbers 2-10 as well as the letters A, T, J, Q, and K.',
                          '',
                          'If you want to specify, you can include the first letter of the suit:',
@@ -126,16 +130,18 @@ class HumanPlayer(Player):
         if dealer:
             set_message(
                 Style.BRIGHT + 'Your deal.' + Style.RESET_ALL,
-                'Enter two cards for your crib. (Spacing between them is optional)')
+                'Enter ' + cards_text + ' for your crib. (Spacing between them is optional)')
         else:
             set_message(
-                Style.BRIGHT + 'Opponent\'s deal.' + Style.RESET_ALL,
-                'Enter two cards for opponent\'s crib. (Spacing between them is optional)')
+                Style.BRIGHT + opponent + '\'s deal.' + Style.RESET_ALL,
+                'Enter ' + cards_text + ' for ' + opponent.lower() + '\'s crib. (Spacing is optional)')
         set_message(*base_messages, append_msg=True)
         discards = []
         while True:
             try:
-                discard_input = self.get_card_input(2)
+                discard_input = self.get_card_input(num_cards)
+                if num_cards == 1:
+                    discard_input = [discard_input]
                 for card in discard_input:
                     discards.append(self.hand.discard(card[0], card[1]))
                 break
@@ -147,11 +153,11 @@ class HumanPlayer(Player):
                 discards = []
                 if dealer:
                     msgs = [Style.BRIGHT + 'Your deal.' + Style.RESET_ALL,
-                            'Invalid input. Enter two cards for your crib. (Spacing between them is optional)']
+                            'Invalid input. Enter ' + cards_text + ' for your crib. (Spacing is optional)']
                 else:
-                    msgs = [Style.BRIGHT + 'Opponent\'s deal.' + Style.RESET_ALL,
+                    msgs = [Style.BRIGHT + opponent + '\'s deal.' + Style.RESET_ALL,
                             Style.BRIGHT + 'Invalid input.' + Style.RESET_ALL +
-                            ' Enter two cards for opponent\'s crib. (Spacing between them is optional)']
+                            ' Enter ' + cards_text + ' for ' + opponent.lower() + '\'s crib. (Spacing is optional)']
                 msgs.extend(base_messages[:4])
                 msgs.extend(['', 'Example:  \'' + self.hand.cards[0].rank + self.hand.cards[0].suit + self.hand.cards[
                     -1].rank + '\' for ' + str(
@@ -212,14 +218,14 @@ class AIPlayer(Player):
 
     @staticmethod
     def cut_deck(*args):
-        return random.randint(4, 36)
+        return random.randint(4, 32)
 
     def print_message(self, *message):
         if self.verbose:
             print(*message)
 
     # Selects and returns a list of the discards and removes them from its Hand object
-    def select_discards(self, set_message, dealer, opponent_score):
+    def select_discards(self, set_message, dealer, opponent_score, num_cards=2):
         # Get best discards, sorted by highest expected net points
         best_discards = self.get_best_discards(dealer)
         # Play more recklessly if justified by the score
@@ -486,7 +492,7 @@ class AIPlayer(Player):
             self.print_message(str(weight[0]), weight[1])
         return sorted(play_weights, key=play_weights.get, reverse=True)
 
-    # Analyze a hand of 6 cards and determine the mathematically optimal discards
+    # Analyze a hand of 5 or 6 cards and determine the mathematically optimal discards
     def get_best_discards(self, dealer):
         # Create a Deck object to represent all the potential upcards
         deck_remainder = Deck()
@@ -576,7 +582,14 @@ class AIPlayer(Player):
                       11: [4.2, 4.4, 4.5, 4.3, 6.7, 4.1, 4.2, 4.1, 4.4, 5, 5.5, 5, 4.4],
                       12: [3.9, 4.1, 4.2, 4, 6.4, 3.8, 3.9, 3.9, 3.7, 4.1, 5, 5, 4],
                       13: [3.9, 4.1, 4.1, 4, 6.4, 3.8, 3.9, 3.8, 3.7, 3.5, 4.4, 4, 4.8]}
-        if dealer:
-            return DEALER_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
+        if len(discards) == 2:
+            if dealer:
+                return DEALER_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
+            else:
+                return PONE_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
         else:
-            return PONE_TABLE[discards[0].num_rank][discards[1].num_rank - 1]
+            # If only discarding one card, use the average value of the applicable row in the table
+            if dealer:
+                return sum(DEALER_TABLE[discards[0].num_rank]) / len(DEALER_TABLE[discards[0].num_rank])
+            else:
+                return sum(PONE_TABLE[discards[0].num_rank]) / len(PONE_TABLE[discards[0].num_rank])
