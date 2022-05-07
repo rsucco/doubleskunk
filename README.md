@@ -33,13 +33,13 @@ name below. Run these commands in an Administrator PowerShell terminal.
 #### Play:
 ##### Linux/BSD/macOS
 
-    ./terminal_client/doubleskunk.py
+    ./doubleskunk.py
 
 ##### Windows 10
 Note: If you have a version of Python 3 installed other than Python 3.8, change the path here accordingly.
 If you followed the setup instructions above, this should work.
 
-    C:\Python38\python.exe .\terminal_client\doubleskunk.py
+    C:\Python38\python.exe .\doubleskunk.py
 
 You can use the `-p` flag to set 1 or 2 players and the `-d` flag to set difficulty betwixt 1 and 3, or just launch the
 game with no flags and select your difficulty and number of players from the game's menus.
