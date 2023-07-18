@@ -758,4 +758,4 @@ class Game:
             self.get_upcard()
             self.pegging()
             self.show_hands()
-            self.switch_dealer()
+            self.switch_dealer(len(self.players) - 1)
